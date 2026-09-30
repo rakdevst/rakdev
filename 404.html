@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Mengarahkan...</title>
+  <script>
+    (function() {
+      var p = window.location.pathname;
+      var clean = p.toLowerCase().replace(/\/+$/, '');
+      var routes = {
+        '/dashboard': 'index.html',
+        '/login': 'login.html',
+        '/register': 'register.html',
+        '/endorser': 'ENDORSER.html',
+        '/resources': 'resources.html',
+        '/admin': 'admin.html'
+      };
+      for (var route in routes) {
+        if (clean === route || clean.endsWith(route)) {
+          var target = routes[route] + window.location.search + window.location.hash;
+          window.location.replace(target);
+          return;
+        }
+      }
+      window.location.replace('index.html' + window.location.search + window.location.hash);
+    })();
+  </script>
+</head>
+<body style="background:#f7f8fa;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#64748b;">
+  <p>Mengarahkan...</p>
+</body>
+</html>

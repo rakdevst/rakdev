@@ -27,6 +27,7 @@ export default defineConfig(() => {
           login: path.resolve(__dirname, 'login.html'),
           register: path.resolve(__dirname, 'register.html'),
           resources: path.resolve(__dirname, 'resources.html'),
+          notfound: path.resolve(__dirname, '404.html'),
         },
       },
     },

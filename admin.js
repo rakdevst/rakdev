@@ -1,3 +1,13 @@
+(function () {
+  try {
+    const p = window.location.pathname;
+    if (p.endsWith('admin.html') || p.endsWith('/admin.html')) {
+      const cleanPath = p.replace(/\/?admin\.html$/, '') + '/admin';
+      window.history.replaceState(null, '', (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath) + window.location.search + window.location.hash);
+    }
+  } catch (e) {}
+})();
+
 const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
 const T = { slots: 'endorser_slots', bookings: 'endorser_bookings', conv: 'conversations', msgs: 'messages', res: 'resources' };

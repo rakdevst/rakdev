@@ -1,3 +1,13 @@
+(function () {
+  try {
+    const p = window.location.pathname;
+    if (p.endsWith('register.html') || p.endsWith('/register.html')) {
+      const cleanPath = p.replace(/\/?register\.html$/, '') + '/register';
+      window.history.replaceState(null, '', (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath) + window.location.search + window.location.hash);
+    }
+  } catch (e) {}
+})();
+
 const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
 const LOGIN_URL = 'login.html';
