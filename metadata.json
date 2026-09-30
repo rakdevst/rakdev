@@ -1,0 +1,6 @@
+{
+  "name": "rakDEV Studio",
+  "description": "Website resmi rakDEV Studio: Dashboard, Endorser, Resources, Login, Register, dan Admin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

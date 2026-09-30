@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>rakDEV ENDORSER</title>
+<link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ENDORSER.css">
+</head>
+<body>
+
+  <div class="gate" id="gate" role="status" aria-live="polite">
+    <div class="gate-spinner"></div>
+    <p class="gate-text" id="gateText">tunggu sebentar...</p>
+    <button type="button" class="gate-retry" id="gateRetry">Muat ulang</button>
+  </div>
+
+  <div class="app">
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="index.html" class="brand" aria-label="rakDEV Studio">
+          <span class="brand-mark"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="rakDEV"></span>
+          <span class="brand-name">rak<b>DEV</b> <span>Endorser</span></span>
+        </a>
+        <div class="header-actions">
+          <button type="button" class="bell-btn" id="bellBtn" aria-label="Notifikasi" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+            <span class="bell-count" id="bellCount" hidden>0</span>
+          </button>
+          <button type="button" class="menu-btn" id="menuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="menu">
+            <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-container">
+      <div id="calendarView" class="view-panel">
+        <div class="metrics-strip">
+          <div class="metric-item">
+            <div class="metric-label">Total Terisi</div>
+            <div class="metric-value mono" id="metricTotalBooked">0</div>
+            <div class="metric-note">Slot terbooking bulan ini</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">Tingkat Okupansi</div>
+            <div class="metric-value mono" id="metricOccupancy">0%</div>
+            <div class="metric-note">Dari total slot periode aktif</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">Dalam Produksi</div>
+            <div class="metric-value mono" id="metricInProduction">0</div>
+            <div class="metric-note">Perlu pemantauan progres</div>
+          </div>
+        </div>
+
+        <div class="calendar-wrapper">
+          <div class="calendar-bar">
+            <div class="calendar-head">
+              <button type="button" class="icon-btn" id="btnPrevMonth" aria-label="Bulan sebelumnya">‹</button>
+              <div class="calendar-title" id="calendarMonthTitle">Kalender</div>
+              <button type="button" class="icon-btn" id="btnNextMonth" aria-label="Bulan berikutnya">›</button>
+            </div>
+            <div class="calendar-load" id="calendarWorkload"></div>
+          </div>
+          <div class="grid-header">
+            <div class="gh-cell">Min</div>
+            <div class="gh-cell">Sen</div>
+            <div class="gh-cell">Sel</div>
+            <div class="gh-cell">Rab</div>
+            <div class="gh-cell">Kam</div>
+            <div class="gh-cell">Jum</div>
+            <div class="gh-cell">Sab</div>
+          </div>
+          <div class="grid-body" id="calendarGridBody"></div>
+          <div class="calendar-notice" id="calendarNotice" hidden></div>
+        </div>
+
+        <section class="my-bookings" id="myBookings" hidden>
+          <div class="section-title">Booking Saya</div>
+          <div class="my-list" id="myBookingsList"></div>
+        </section>
+      </div>
+
+      <div id="detailView" class="view-panel hidden">
+        <div class="detail-header">
+          <button class="btn" id="btnBackToCalendar">← Kembali</button>
+          <div id="detailHeaderBadge"></div>
+        </div>
+
+        <div class="detail-grid">
+          <div>
+            <div class="card">
+              <h1 class="hero-name" id="detailServerName"></h1>
+              <div class="hero-cat" id="detailCategory"></div>
+              <div class="meta-row">
+                <div class="meta-item">
+                  <div class="meta-label">Estimasi Upload</div>
+                  <div class="meta-value mono" id="detailScheduledDate">-</div>
+                </div>
+                <div class="meta-item">
+                  <div class="meta-label">Jam Upload</div>
+                  <div class="meta-value" id="detailTimeSlot">-</div>
+                </div>
+                <div class="meta-item">
+                  <div class="meta-label">Tipe Konten</div>
+                  <div class="meta-value" id="detailContentType">-</div>
+                </div>
+              </div>
+              <div class="desc-block">
+                <div class="meta-label">Deskripsi</div>
+                <p class="desc-text" id="detailDescription" style="margin-top:.4rem"></p>
+              </div>
+            </div>
+
+            <div class="card" id="progressCard">
+              <div class="card-title">
+                <span>Progres Produksi</span>
+                <span id="detailPhaseBadge" class="badge"></span>
+              </div>
+              <div class="progress-head">
+                <span id="detailCurrentPhaseName"></span>
+                <span class="progress-percent mono" id="detailProgressPercent">0%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="detailProgressFill" style="width:0%"></div>
+              </div>
+              <div class="progress-mono" id="detailAsciiText"></div>
+
+              <div style="margin-top:1.25rem">
+                <div class="meta-label" style="margin-bottom:.25rem">Alur Produksi</div>
+                <div class="timeline" id="detailTimeline"></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-title">Informasi Booking</div>
+              <div id="bookingDetailsContainer" class="booking-list"></div>
+              <div id="bookingActionContainer" style="margin-top:1.1rem"></div>
+            </div>
+
+            <div class="card" id="chatCard" hidden>
+              <div class="card-title">Chat Booking</div>
+              <div class="chat-list" id="chatList"></div>
+              <form class="chat-form" id="chatForm">
+                <input type="text" id="chatInput" class="form-control" placeholder="Tulis pesan..." maxlength="2000" autocomplete="off">
+                <button type="submit" class="btn btn-primary" id="chatSend">Kirim</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>&copy; <span id="year"></span> rakDEV Studio</span>
+        <span>Server Minecraft Java Edition</span>
+      </div>
+    </footer>
+
+    <div class="notif-backdrop" id="notifBackdrop"></div>
+    <section class="notif-panel" id="notifPanel" role="dialog" aria-modal="false" aria-label="Notifikasi" aria-hidden="true">
+      <div class="notif-head">
+        <span class="notif-title">Notifikasi</span>
+        <div class="notif-head-actions">
+          <button type="button" class="notif-link" id="notifMarkAll" disabled>Tandai semua dibaca</button>
+          <button type="button" class="notif-close" id="notifClose" aria-label="Tutup notifikasi">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="notif-list" id="notifList" role="list" aria-live="polite"></div>
+      <div class="notif-foot">
+        <div class="push-text">
+          <b id="pushTitle">Push notification</b>
+          <span id="pushDesc">Memeriksa perangkat...</span>
+        </div>
+        <button type="button" class="btn" id="pushBtn" disabled>Aktifkan</button>
+      </div>
+    </section>
+
+    <div class="scrim" id="scrim"></div>
+
+    <aside class="menu" id="menu" aria-label="Menu utama" aria-hidden="true">
+      <div class="menu-head">
+        <span class="menu-title">Menu</span>
+        <button type="button" class="menu-close" id="menuClose" aria-label="Tutup menu">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="menu-user">
+        <div class="avatar" id="menuAvatar" aria-hidden="true"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile"></div>
+        <div class="menu-user-text">
+          <div class="menu-user-name" id="menuName"></div>
+          <div class="menu-user-email" id="menuEmail"></div>
+        </div>
+      </div>
+
+      <nav class="menu-nav">
+        <a href="index.html" class="menu-item" id="menuDashboard">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="ENDORSER.html" class="menu-item" id="menuEndorser" aria-current="page">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.8.8 3 2.6 3 5.6"/></svg>
+          <span>Endorser</span>
+        </a>
+        <a href="resources.html" class="menu-item" id="menuResources">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
+          <span>Resources</span>
+        </a>
+
+        <div class="menu-label">Halaman lainnya</div>
+        <div class="menu-item placeholder" aria-disabled="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Halaman rakDEV</span>
+          <span class="badge">Segera</span>
+        </div>
+      </nav>
+
+      <div class="menu-foot">
+        <button type="button" class="menu-item logout" id="logoutBtn">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span id="logoutLabel">Logout</span>
+        </button>
+      </div>
+    </aside>
+  </div>
+
+<div class="modal-backdrop" id="bookingModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modalBookingTitle">Book Slot Upload</div>
+      <button class="modal-close" id="btnCloseBookingModal" aria-label="Tutup">✕</button>
+    </div>
+    <form id="bookingForm">
+      <div class="form-group">
+        <label class="form-label" for="bookServerName">Nama Server *</label>
+        <input type="text" id="bookServerName" class="form-control" placeholder="Contoh: Server Minecraft / GTA RP" maxlength="100" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="bookIp">IP Server *</label>
+          <input type="text" id="bookIp" class="form-control" placeholder="Contoh: mc.server.id" maxlength="255" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bookPort">Port *</label>
+          <input type="text" id="bookPort" class="form-control" placeholder="Contoh: 25565 / 19132" maxlength="30" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookFeatures">Fitur yang Mau Dibahas *</label>
+        <textarea id="bookFeatures" class="form-control" rows="3" placeholder="Sebutkan fitur-fitur unik server yang ingin ditunjukkan..." maxlength="1000" required></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookSocialMedia">Link Media Sosial *</label>
+        <input type="url" id="bookSocialMedia" class="form-control" placeholder="Contoh: https://instagram.com/serverku atau Discord" maxlength="300" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" id="btnCancelBookingModal">Batal</button>
+        <button type="submit" class="btn btn-primary" id="btnSubmitBooking">Konfirmasi Booking</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="ENDORSER.js"></script>
+</body>
+</html>

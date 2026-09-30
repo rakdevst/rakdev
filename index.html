@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>Dashboard - rakDEV Studio</title>
+  <link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div class="gate" id="gate" role="status" aria-live="polite">
+    <div class="gate-spinner"></div>
+    <p class="gate-text" id="gateText">tunggu sebentar...</p>
+    <button type="button" class="gate-retry" id="gateRetry">Muat ulang</button>
+  </div>
+
+  <div class="app">
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="index.html" class="brand" aria-label="rakDEV Studio">
+          <span class="brand-mark"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="rakDEV"></span>
+          <span class="brand-name">rak<b>DEV</b> <span>Studio</span></span>
+        </a>
+        <button type="button" class="menu-btn" id="menuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="menu">
+          <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+        </button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="container">
+          <span class="eyebrow reveal">Dashboard</span>
+          <h1 class="reveal" style="--d: 0.06s">
+            Halo, <span id="userName"></span>.
+            <span class="sub">Selamat datang di rakDEV Studio.</span>
+          </h1>
+          <p class="lead reveal" style="--d: 0.12s">
+            rakDEV Studio membangun komunitas developer server Minecraft.
+            untuk pemula,sepuh dan lain lain
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <h2 class="section-title reveal" style="--d: 0.16s">Yang kami kerjakan</h2>
+          <div class="services">
+            <article class="service reveal" style="--d: 0.2s">
+              <span class="service-num">01</span>
+              <h3>Setup Server</h3>
+              <p>Instalasi dan konfigurasi server Paper dan Purpur di panel hosting, dengan fondasi yang stabil sejak hari pertama.</p>
+            </article>
+            <article class="service reveal" style="--d: 0.24s">
+              <span class="service-num">02</span>
+              <h3>Plugin dan Sistem</h3>
+              <p>Penataan plugin, ekonomi, dan sistem gameplay agar sesuai dengan karakter dan tujuan server Anda.</p>
+            </article>
+            <article class="service reveal" style="--d: 0.28s">
+              <span class="service-num">03</span>
+              <h3>Konten Kustom</h3>
+              <p>Model, animasi, texture pack, dan item kustom yang memberi server tampilan yang khas.</p>
+            </article>
+            <article class="service reveal" style="--d: 0.32s">
+              <span class="service-num">04</span>
+              <h3>Web dan Tools</h3>
+              <p>Website dan alat bantu berbasis web yang terhubung dengan komunitas dan server Anda.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <h2 class="section-title reveal" style="--d: 0.36s">Jelajahi</h2>
+          <div class="explore reveal" style="--d: 0.4s">
+            <a href="ENDORSER.html" class="explore-row">
+              <span>
+                <strong>Endorser</strong>
+                <small>Buka halaman Endorser</small>
+              </span>
+              <span class="explore-arrow" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </span>
+            </a>
+            <a href="resources.html" class="explore-row">
+              <span>
+                <strong>Resources</strong>
+                <small>Buka halaman Resources</small>
+              </span>
+              <span class="explore-arrow" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </span>
+            </a>
+            <div class="explore-row soon" aria-disabled="true">
+              <span>
+                <strong>Halaman rakDEV lainnya</strong>
+                <small>Akan tersedia di sini</small>
+              </span>
+              <span class="badge">Segera</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <span>&copy; <span id="year"></span> rakDEV Studio</span>
+        <span>Server Minecraft Java Edition</span>
+      </div>
+    </footer>
+
+    <div class="scrim" id="scrim"></div>
+
+    <aside class="menu" id="menu" aria-label="Menu utama" aria-hidden="true">
+      <div class="menu-head">
+        <span class="menu-title">Menu</span>
+        <button type="button" class="menu-close" id="menuClose" aria-label="Tutup menu">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="menu-user">
+        <div class="avatar" id="menuAvatar" aria-hidden="true"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile"></div>
+        <div class="menu-user-text">
+          <div class="menu-user-name" id="menuName"></div>
+          <div class="menu-user-email" id="menuEmail"></div>
+        </div>
+      </div>
+
+      <nav class="menu-nav">
+        <a href="index.html" class="menu-item" id="menuDashboard" aria-current="page">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="ENDORSER.html" class="menu-item">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.8.8 3 2.6 3 5.6"/></svg>
+          <span>Endorser</span>
+        </a>
+        <a href="resources.html" class="menu-item">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
+          <span>Resources</span>
+        </a>
+
+        <div class="menu-label">Halaman lainnya</div>
+        <div class="menu-item placeholder" aria-disabled="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Halaman rakDEV</span>
+          <span class="badge">Segera</span>
+        </div>
+      </nav>
+
+      <div class="menu-foot">
+        <button type="button" class="menu-item logout" id="logoutBtn">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span id="logoutLabel">Logout</span>
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

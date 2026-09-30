@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - rakDEV</title>
+<link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="bg-glow bg-glow-1"></div>
+<div class="bg-glow bg-glow-2"></div>
+
+<div id="loginView">
+  <div class="login-container">
+    <div class="panda-wrapper" id="panda" aria-hidden="true">
+      <div class="panda">
+        <div class="panda-ear left"></div><div class="panda-ear right"></div>
+        <div class="panda-head">
+          <div class="eye-patch left"><div class="eyeball"><div class="pupil"></div></div></div>
+          <div class="eye-patch right"><div class="eyeball"><div class="pupil"></div></div></div>
+          <div class="blush left"></div><div class="blush right"></div>
+          <div class="nose"></div><div class="mouth"></div>
+        </div>
+        <div class="paw left"></div><div class="paw right"></div>
+      </div>
+    </div>
+    <main class="card" id="formCard">
+      <div class="card-header">
+        <div class="card-badge"><span class="badge-dot"></span>admin</div>
+        <h1>Admin Login</h1>
+        <p>Masuk dengan akun admin</p>
+      </div>
+      <div id="alertBox" class="alert" role="alert" aria-live="polite"></div>
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="identity">Email</label>
+          <div class="input-wrapper"><input type="email" id="identity" class="form-control" placeholder="Email" autocomplete="email" required></div>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
+            <button type="button" id="togglePassword" class="password-toggle" aria-label="Tampilkan password">
+              <svg id="eyeIcon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" id="btnLogin" class="btn-submit"><div class="btn-spinner"></div><span id="btnText">LOGIN</span></button>
+      </form>
+    </main>
+  </div>
+</div>
+
+<div id="panelView" hidden>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand" style="display:flex;align-items:center;gap:10px"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="rakDEV" style="width:32px;height:32px;border-radius:9px;object-fit:cover;flex:none"><div>rakDEV<span>Admin Panel</span></div></div>
+    <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+    <button class="nav-btn" data-view="endorser">Endorser</button>
+    <button class="nav-btn" data-view="bookings">Booking / Pesanan</button>
+    <button class="nav-btn" data-view="resources">Resources</button>
+    <button class="nav-btn" type="button" data-bell aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel" aria-label="Notifikasi"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span>Notifikasi</span><span class="bell-count" hidden>0</span></button>
+    <div class="nav-spacer"></div>
+    <button class="nav-btn" id="btnLogout">Logout</button>
+    <div class="who"><b id="whoName">-</b><span id="whoEmail">-</span><br><span class="chip">ADMIN</span></div>
+  </aside>
+  <div style="flex:1;min-width:0">
+    <div class="topbar"><b>rakDEV Admin</b><div class="topbar-actions"><button class="btn sm bell" type="button" data-bell aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel" aria-label="Notifikasi"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bell-count" hidden>0</span></button><button class="btn sm" id="btnMenu">Menu</button></div></div>
+    <div class="main" id="main"></div>
+  </div>
+</div>
+
+<div class="notif-backdrop" id="notifBackdrop"></div>
+<section class="notif-panel" id="notifPanel" role="dialog" aria-modal="false" aria-label="Notifikasi" aria-hidden="true">
+  <div class="notif-head">
+    <span class="notif-title">Notifikasi</span>
+    <div class="notif-head-actions">
+      <button type="button" class="notif-link" id="notifMarkAll" disabled>Tandai semua dibaca</button>
+      <button type="button" class="notif-close" id="notifClose" aria-label="Tutup notifikasi"><svg class="bell-icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
+  <div class="notif-list" id="notifList" aria-live="polite"></div>
+  <div class="notif-foot">
+    <div class="push-text"><b id="pushTitle">Push notification</b><span id="pushDesc">Memeriksa perangkat...</span></div>
+    <button type="button" class="btn sm" id="pushBtn" disabled>Aktifkan</button>
+  </div>
+</section>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="admin.js"></script>
+</body>
+</html>
