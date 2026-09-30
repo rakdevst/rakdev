@@ -17,11 +17,13 @@
       };
       for (var route in routes) {
         if (clean === route || clean.endsWith(route)) {
+          try { sessionStorage.setItem('clean_url', p + window.location.search + window.location.hash); } catch (e) {}
           var target = routes[route] + window.location.search + window.location.hash;
           window.location.replace(target);
           return;
         }
       }
+      try { sessionStorage.setItem('clean_url', '/dashboard' + window.location.search + window.location.hash); } catch (e) {}
       window.location.replace('index.html' + window.location.search + window.location.hash);
     })();
   </script>

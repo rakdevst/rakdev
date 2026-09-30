@@ -2,6 +2,9 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function(){try{var s=sessionStorage.getItem('clean_url');if(s){sessionStorage.removeItem('clean_url');window.history.replaceState(null,'',s);return;}var p=window.location.pathname;if(/\.(html?|htm)$/i.test(p)||p.endsWith('/')||p===''||p.endsWith('/index')){var c=p.replace(/\.(html?|htm)$/i,'');if(c.endsWith('/index')||c===''||c==='/'){c=c.replace(/\/?index$/,'')+'/dashboard';}else{c=c.toLowerCase();}var f=(c.startsWith('/')?c:'/'+c)+window.location.search+window.location.hash;window.history.replaceState(null,'',f);}}catch(e){}})();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Register - Portal Utama</title>
   <link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
