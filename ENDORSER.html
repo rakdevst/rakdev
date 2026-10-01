@@ -31,10 +31,6 @@
           <span class="brand-name">rak<b>DEV</b> <span>Endorser</span></span>
         </a>
         <div class="header-actions">
-          <button type="button" class="bell-btn" id="bellBtn" aria-label="Notifikasi" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
-            <span class="bell-count" id="bellCount" hidden>0</span>
-          </button>
           <button type="button" class="menu-btn" id="menuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="menu">
             <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
           </button>
@@ -168,27 +164,6 @@
         <span>Server Minecraft Java Edition</span>
       </div>
     </footer>
-
-    <div class="notif-backdrop" id="notifBackdrop"></div>
-    <section class="notif-panel" id="notifPanel" role="dialog" aria-modal="false" aria-label="Notifikasi" aria-hidden="true">
-      <div class="notif-head">
-        <span class="notif-title">Notifikasi</span>
-        <div class="notif-head-actions">
-          <button type="button" class="notif-link" id="notifMarkAll" disabled>Tandai semua dibaca</button>
-          <button type="button" class="notif-close" id="notifClose" aria-label="Tutup notifikasi">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="notif-list" id="notifList" role="list" aria-live="polite"></div>
-      <div class="notif-foot">
-        <div class="push-text">
-          <b id="pushTitle">Push notification</b>
-          <span id="pushDesc">Memeriksa perangkat...</span>
-        </div>
-        <button type="button" class="btn" id="pushBtn" disabled>Aktifkan</button>
-      </div>
-    </section>
 
     <div class="scrim" id="scrim"></div>
 

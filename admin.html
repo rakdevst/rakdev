@@ -65,32 +65,15 @@
     <button class="nav-btn" data-view="endorser">Endorser</button>
     <button class="nav-btn" data-view="bookings">Booking / Pesanan</button>
     <button class="nav-btn" data-view="resources">Resources</button>
-    <button class="nav-btn" type="button" data-bell aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel" aria-label="Notifikasi"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span>Notifikasi</span><span class="bell-count" hidden>0</span></button>
     <div class="nav-spacer"></div>
     <button class="nav-btn" id="btnLogout">Logout</button>
     <div class="who"><b id="whoName">-</b><span id="whoEmail">-</span><br><span class="chip">ADMIN</span></div>
   </aside>
   <div style="flex:1;min-width:0">
-    <div class="topbar"><b>rakDEV Admin</b><div class="topbar-actions"><button class="btn sm bell" type="button" data-bell aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel" aria-label="Notifikasi"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bell-count" hidden>0</span></button><button class="btn sm" id="btnMenu">Menu</button></div></div>
+    <div class="topbar"><b>rakDEV Admin</b><div class="topbar-actions"><button class="btn sm" id="btnMenu">Menu</button></div></div>
     <div class="main" id="main"></div>
   </div>
 </div>
-
-<div class="notif-backdrop" id="notifBackdrop"></div>
-<section class="notif-panel" id="notifPanel" role="dialog" aria-modal="false" aria-label="Notifikasi" aria-hidden="true">
-  <div class="notif-head">
-    <span class="notif-title">Notifikasi</span>
-    <div class="notif-head-actions">
-      <button type="button" class="notif-link" id="notifMarkAll" disabled>Tandai semua dibaca</button>
-      <button type="button" class="notif-close" id="notifClose" aria-label="Tutup notifikasi"><svg class="bell-icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    </div>
-  </div>
-  <div class="notif-list" id="notifList" aria-live="polite"></div>
-  <div class="notif-foot">
-    <div class="push-text"><b id="pushTitle">Push notification</b><span id="pushDesc">Memeriksa perangkat...</span></div>
-    <button type="button" class="btn sm" id="pushBtn" disabled>Aktifkan</button>
-  </div>
-</section>
 
 <div class="toast-wrap" id="toasts"></div>
 
