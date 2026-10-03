@@ -10,10 +10,11 @@
 
 const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
-const T = { slots: 'endorser_slots', bookings: 'endorser_bookings', conv: 'conversations', msgs: 'messages', res: 'resources' };
+const T = { slots: 'endorser_slots', bookings: 'endorser_bookings', conv: 'conversations', msgs: 'messages', res: 'resources', tut: 'tutorials' };
 const LOGO_BUCKET = 'endorser-logos';
 const FILES_BUCKET = 'resource-files';
 const THUMB_BUCKET = 'resource-thumbnails';
+const TUTORIAL_THUMB_BUCKET = 'tutorial-thumbnails';
 const STATUSES = ['available', 'pending', 'approved', 'rejected', 'cancelled', 'in_production', 'completed'];
 const BOOKING_STATUSES = STATUSES.filter(s => s !== 'available');
 const LABEL = { available: 'TERSEDIA', pending: 'MENUNGGU', approved: 'DISETUJUI', rejected: 'DITOLAK', cancelled: 'DIBATALKAN', in_production: 'DIKERJAKAN', completed: 'SELESAI' };
@@ -22,7 +23,7 @@ const IMG_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 const client = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const $ = (id) => document.getElementById(id);
-const S = { user: null, name: '', view: 'dashboard', slots: [], bookings: [], resources: [], filter: { q: '', status: '', date: '' }, chat: null, tagsAsText: false, rechecking: false };
+const S = { user: null, name: '', view: 'dashboard', slots: [], bookings: [], resources: [], tutorials: [], filter: { q: '', status: '', date: '' }, chat: null, tagsAsText: false, rechecking: false };
 
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const badge = (s) => `<span class="badge badge-${STATUSES.includes(s) ? s : 'cancelled'}">${esc(LABEL[s] || String(s || '-').toUpperCase())}</span>`;
@@ -188,7 +189,7 @@ function go(view) {
   rtPending = false;
   S.view = view;
   document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-  ({ dashboard: viewDashboard, endorser: viewEndorser, bookings: viewBookings, resources: viewResources })[view]();
+  ({ dashboard: viewDashboard, endorser: viewEndorser, bookings: viewBookings, resources: viewResources, tutorials: viewTutorials })[view]();
 }
 
 async function fetchSlots() {
@@ -207,6 +208,11 @@ async function fetchResources() {
   S.resources = data || [];
   S.tagsAsText = S.resources.some(r => typeof r.tags === 'string' || typeof r.dependencies === 'string');
 }
+async function fetchTutorials() {
+  const { data, error } = await client.from(T.tut).select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  S.tutorials = data || [];
+}
 
 let rtChannel = null, rtTimer = null, rtPending = false;
 function startRealtime() {
@@ -223,6 +229,7 @@ function startRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: T.slots }, refresh)
     .on('postgres_changes', { event: '*', schema: 'public', table: T.bookings }, refresh)
     .on('postgres_changes', { event: '*', schema: 'public', table: T.res }, refresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: T.tut }, refresh)
     .subscribe();
 }
 function stopRealtime() {
@@ -235,7 +242,7 @@ function stopRealtime() {
 async function viewDashboard() {
   $('main').innerHTML = '<h2 class="page-title">Dashboard</h2><div class="empty">Memuat...</div>';
   try {
-    await Promise.all([fetchSlots(), fetchBookings(), fetchResources()]);
+    await Promise.all([fetchSlots(), fetchBookings(), fetchResources(), fetchTutorials()]);
   } catch (e) { $('main').innerHTML = `<h2 class="page-title">Dashboard</h2><div class="empty">${esc(errText(e))}</div>`; return; }
   const cnt = (arr, s) => arr.filter(x => x.status === s).length;
   const recent = S.bookings.slice(0, 5);
@@ -246,6 +253,7 @@ async function viewDashboard() {
     <div class="stat"><b>${cnt(S.bookings, 'pending')}</b><span>Booking menunggu</span></div>
     <div class="stat"><b>${cnt(S.bookings, 'in_production')}</b><span>Dikerjakan</span></div>
     <div class="stat"><b>${S.resources.length}</b><span>Resources</span></div>
+    <div class="stat"><b>${S.tutorials.length}</b><span>Tutorial</span></div>
   </div>
   <div class="section" style="border:none;margin-top:0"><h4>Booking terbaru</h4>
   <div class="table-wrap">${recent.length ? `<table class="cards"><thead><tr><th>Server</th><th>User</th><th>Tanggal</th><th>Status</th><th></th></tr></thead><tbody>${recent.map(b => `<tr><td data-l="Server">${esc(b.server_name)}</td><td data-l="User">${esc(b.username || b.email || '-')}</td><td data-l="Tanggal">${fmtDate(b.slot && b.slot.scheduled_date)}</td><td data-l="Status">${badge(b.status)}</td><td class="act"><button class="btn sm" data-open="${esc(b.id)}">Detail</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Belum ada booking.</div>'}</div></div>`;
@@ -701,3 +709,186 @@ function resModal(r) {
     }
   });
 }
+
+async function viewTutorials() {
+  $('main').innerHTML = '<h2 class="page-title">Tutorial</h2><div class="empty">Memuat...</div>';
+  try { await fetchTutorials(); }
+  catch (e) { $('main').innerHTML = `<h2 class="page-title">Tutorial</h2><div class="empty">${esc(errText(e))}</div>`; return; }
+  $('main').innerHTML = `<h2 class="page-title">Tutorial</h2>
+  <div class="toolbar"><button class="btn primary" id="btnNewTut">Tambah Tutorial</button></div>
+  <div class="table-wrap">${S.tutorials.length ? `<table class="cards"><thead><tr><th>Thumbnail</th><th>Judul</th><th>Platform</th><th>Kategori</th><th>Link Video</th><th></th></tr></thead><tbody>${S.tutorials.map(t => {
+    const vidUrl = t.video_url || t.youtube_url || '';
+    const thumbUrl = t.thumbnail_url ? (t.thumbnail_url.startsWith('http') ? t.thumbnail_url : publicUrl(TUTORIAL_THUMB_BUCKET, t.thumbnail_url)) : '';
+    return `<tr>
+      <td data-l="Thumb">${thumbUrl ? `<img class="thumb" src="${esc(thumbUrl)}" alt="" onerror="this.onerror=null;this.src=''">` : '<span class="hint">No image</span>'}</td>
+      <td data-l="Judul"><b>${esc(t.title)}</b>${t.description ? `<br><small class="hint">${esc(t.description.slice(0, 75))}${t.description.length > 75 ? '...' : ''}</small>` : ''}</td>
+      <td data-l="Platform"><span class="badge badge-${(t.platform || 'youtube').toLowerCase()}">${esc(t.platform || 'YouTube')}</span></td>
+      <td data-l="Kategori">${esc(t.category || 'General')}</td>
+      <td data-l="Video">${vidUrl ? `<a href="${esc(vidUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-blue);text-decoration:underline">Buka Video ↗</a>` : '-'}</td>
+      <td class="act"><div class="actions"><button class="btn sm" data-edit-tut="${esc(t.id)}">Edit</button><button class="btn sm danger" data-del-tut="${esc(t.id)}">Hapus</button></div></td>
+    </tr>`;
+  }).join('')}</tbody></table>` : '<div class="empty">Belum ada tutorial. Klik "Tambah Tutorial" untuk mulai menambahkan.</div>'}</div>`;
+
+  $('btnNewTut').addEventListener('click', () => tutorialModal(null));
+  document.querySelectorAll('[data-edit-tut]').forEach(b => b.addEventListener('click', () => tutorialModal(S.tutorials.find(t => t.id === b.dataset.editTut))));
+  document.querySelectorAll('[data-del-tut]').forEach(b => b.addEventListener('click', async () => {
+    const t = S.tutorials.find(x => x.id === b.dataset.delTut);
+    if (!confirm(`Hapus tutorial "${t.title}" beserta thumbnail?`)) return;
+    const { error } = await client.from(T.tut).delete().eq('id', t.id);
+    if (error) return toast(errText(error), true);
+    if (t.thumbnail_url && !/^https?:/i.test(t.thumbnail_url)) {
+      await client.storage.from(TUTORIAL_THUMB_BUCKET).remove([t.thumbnail_url]);
+    }
+    toast('Tutorial dihapus');
+    viewTutorials();
+  }));
+}
+
+function tutorialModal(t) {
+  const isNew = !t;
+  const x = t || { platform: 'YouTube', category: 'General' };
+  const currentThumbUrl = x.thumbnail_url ? (x.thumbnail_url.startsWith('http') ? x.thumbnail_url : publicUrl(TUTORIAL_THUMB_BUCKET, x.thumbnail_url)) : '';
+  const vidUrl = x.video_url || x.youtube_url || '';
+
+  const m = modal(`<h3>${isNew ? 'Tambah Tutorial' : 'Edit Tutorial'}<button class="btn sm" data-close>Tutup</button></h3>
+  <form id="tutForm">
+    <div class="grid2">
+      <div class="form-group"><label>Judul Tutorial *</label><input class="form-control" name="title" value="${esc(x.title || '')}" maxlength="150" required placeholder="Contoh: Cara Setup Purpur Server"></div>
+      <div class="form-group"><label>Platform Video *</label>
+        <select class="form-control" name="platform" id="tutPlatformSelect" required>
+          <option value="YouTube" ${x.platform === 'YouTube' ? 'selected' : ''}>YouTube</option>
+          <option value="TikTok" ${x.platform === 'TikTok' ? 'selected' : ''}>TikTok</option>
+          <option value="Instagram" ${x.platform === 'Instagram' ? 'selected' : ''}>Instagram</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Link Video *</label><input class="form-control" type="url" name="video_url" value="${esc(vidUrl)}" maxlength="400" required placeholder="https://www.youtube.com/watch?v=..."></div>
+      <div class="form-group"><label>Kategori *</label>
+        <input class="form-control" name="category" list="catList" value="${esc(x.category || 'General')}" maxlength="60" required placeholder="Contoh: Setup Server, Plugins">
+        <datalist id="catList">
+          <option value="Setup Server">
+          <option value="Plugins & Konfigurasi">
+          <option value="Gameplay & Sistem">
+          <option value="Resources & Texture">
+          <option value="Web & Tools">
+          <option value="General">
+        </datalist>
+      </div>
+    </div>
+    <div class="form-group"><label>Deskripsi Pendek</label><textarea class="form-control" name="description" rows="2" maxlength="300" placeholder="Ringkasan singkat isi video tutorial...">${esc(x.description || '')}</textarea></div>
+    <div class="form-group">
+      <label>Thumbnail (PNG/JPG/WEBP, maks 5 MB)</label>
+      <input class="form-control" type="file" id="tutThumbInput" name="thumb" accept="image/png,image/jpeg,image/webp,image/gif" style="padding-top:9px">
+      <div id="thumbPreviewArea" style="margin-top:.6rem;display:flex;align-items:center;gap:12px;${currentThumbUrl ? '' : 'display:none;'}">
+        <img id="thumbPreviewImg" class="thumb" src="${esc(currentThumbUrl)}" alt="Preview" style="width:110px;height:62px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;background:#f1f5f9">
+        ${currentThumbUrl ? `<label style="font-weight:500;font-size:.78rem;cursor:pointer"><input type="checkbox" name="rm_thumb"> Hapus thumbnail saat ini</label>` : ''}
+      </div>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>Batal</button><button class="btn primary" type="submit" id="tutSave">Simpan</button></div>
+  </form>`, true);
+
+  const fileInput = m.querySelector('#tutThumbInput');
+  const previewArea = m.querySelector('#thumbPreviewArea');
+  const previewImg = m.querySelector('#thumbPreviewImg');
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        previewImg.src = url;
+        previewArea.style.display = 'flex';
+      }
+    });
+  }
+
+  m.querySelector('#tutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target, f = new FormData(form);
+    const thumb = f.get('thumb');
+    const hasThumb = thumb && thumb.size > 0;
+    if (hasThumb) {
+      const bad = validateImage(thumb);
+      if (bad) return toast(bad, true);
+    }
+
+    const btn = $('tutSave');
+    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    let uploadedBucket = null, uploadedPath = null;
+
+    try {
+      const title = f.get('title').trim();
+      const video_url = f.get('video_url').trim();
+      const platform = f.get('platform');
+      const category = f.get('category').trim() || 'General';
+      const description = f.get('description').trim() || null;
+
+      const payload = {
+        title,
+        video_url,
+        youtube_url: video_url,
+        platform,
+        category,
+        description
+      };
+
+      const stamp = Date.now();
+      let oldThumb = null;
+
+      if (hasThumb) {
+        const path = `${stamp}_${safeName(thumb.name)}`;
+        let up = await client.storage.from(TUTORIAL_THUMB_BUCKET).upload(path, thumb, { contentType: thumb.type });
+        if (up.error) {
+          // Fallback to THUMB_BUCKET if tutorial-thumbnails has not been created yet
+          up = await client.storage.from(THUMB_BUCKET).upload(path, thumb, { contentType: thumb.type });
+          if (up.error) throw up.error;
+          uploadedBucket = THUMB_BUCKET;
+          payload.thumbnail_url = client.storage.from(THUMB_BUCKET).getPublicUrl(path).data.publicUrl;
+        } else {
+          uploadedBucket = TUTORIAL_THUMB_BUCKET;
+          payload.thumbnail_url = client.storage.from(TUTORIAL_THUMB_BUCKET).getPublicUrl(path).data.publicUrl;
+        }
+        uploadedPath = path;
+        if (t && t.thumbnail_url) oldThumb = t.thumbnail_url;
+      } else if (t && f.get('rm_thumb')) {
+        payload.thumbnail_url = null;
+        oldThumb = t.thumbnail_url;
+      }
+
+      // Execute insert or update
+      let q = isNew ? client.from(T.tut).insert(payload) : client.from(T.tut).update(payload).eq('id', t.id);
+      let res = await q;
+
+      // Backward-compatibility: if server reports column description/platform/category does not exist yet
+      if (res.error && /column.*does not exist/i.test(res.error.message)) {
+        console.warn('Supabase tutorials table missing newer columns. Falling back to basic schema:', res.error);
+        const fallbackPayload = {
+          title: payload.title,
+          youtube_url: payload.video_url
+        };
+        if (payload.thumbnail_url !== undefined) fallbackPayload.thumbnail_url = payload.thumbnail_url;
+        q = isNew ? client.from(T.tut).insert(fallbackPayload) : client.from(T.tut).update(fallbackPayload).eq('id', t.id);
+        res = await q;
+        if (!res.error) {
+          toast('Disimpan! Catatan: Jalankan supabase_tutorial_migration.sql untuk mengaktifkan kolom kategori & platform.');
+        }
+      }
+
+      if (res.error) throw res.error;
+
+      // Delete old thumbnail if replaced
+      if (oldThumb && !/^https?:/i.test(oldThumb)) {
+        await client.storage.from(TUTORIAL_THUMB_BUCKET).remove([oldThumb]);
+      }
+
+      toast(isNew ? 'Tutorial ditambahkan' : 'Tutorial diperbarui');
+      closeModal(m);
+      viewTutorials();
+    } catch (err) {
+      if (uploadedBucket && uploadedPath) {
+        await client.storage.from(uploadedBucket).remove([uploadedPath]);
+      }
+      toast(errText(err), true);
+      btn.disabled = false; btn.textContent = 'Simpan';
+    }
+  });
+}
+

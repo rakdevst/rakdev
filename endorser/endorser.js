@@ -1,16 +1,15 @@
 (function () {
   try {
     const p = window.location.pathname;
-    if (/(?:ENDORSER|endorser)\.html$/i.test(p)) {
-      const cleanPath = p.replace(/\/?(?:ENDORSER|endorser)\.html$/i, '') + '/endorser';
-      window.history.replaceState(null, '', (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath) + window.location.search + window.location.hash);
+    if (/(?:ENDORSER|endorser)\.html$/i.test(p) || p.endsWith('/endorser/')) {
+      window.history.replaceState(null, '', '/endorser' + window.location.search + window.location.hash);
     }
   } catch (e) {}
 })();
 
 const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
-const LOGIN_URL = 'login.html';
+const LOGIN_URL = '/login';
 
 const TABLES = {
   slots: 'endorser_slots',
@@ -32,16 +31,18 @@ const client = window.supabase && isConfigured
   : null;
 
 const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const monthNamesUpper = ["JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI","JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER"];
+const monthShort = ["JAN","FEB","MAR","APR","MEI","JUN","JUL","AGU","SEP","OKT","NOV","DES"];
 const dayNamesShort = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
 
 const STATUS_LABEL = {
-  available: 'AVAILABLE',
-  pending: 'MENUNGGU',
-  approved: 'DISETUJUI',
-  rejected: 'DITOLAK',
-  in_production: 'PRODUKSI',
-  completed: 'PUBLISHED',
-  cancelled: 'DIBATALKAN'
+  available: 'Available',
+  pending: 'Menunggu',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+  in_production: 'Produksi',
+  completed: 'Published',
+  cancelled: 'Dibatalkan'
 };
 
 const now = new Date();
@@ -52,6 +53,7 @@ const state = {
   conversations: {},
   viewYear: now.getFullYear(),
   viewMonth: now.getMonth(),
+  activeFilter: 'all', // 'all' | 'available' | 'booked' | 'mine'
   loadError: null,
   detail: { slotId: null, bookingId: null },
   bookingSlotId: null,
@@ -60,17 +62,35 @@ const state = {
   liveChannel: null
 };
 
+// DOM Elements
 const gate = document.getElementById('gate');
 const gateText = document.getElementById('gateText');
 const gateRetry = document.getElementById('gateRetry');
-const calendarView = document.getElementById('calendarView');
+
+const slotListView = document.getElementById('slotListView');
 const detailView = document.getElementById('detailView');
-const calendarGridBody = document.getElementById('calendarGridBody');
-const calendarMonthTitle = document.getElementById('calendarMonthTitle');
-const calendarWorkload = document.getElementById('calendarWorkload');
-const calendarNotice = document.getElementById('calendarNotice');
-const btnPrevMonth = document.getElementById('btnPrevMonth');
-const btnNextMonth = document.getElementById('btnNextMonth');
+
+const monthHeroTitle = document.getElementById('monthHeroTitle');
+const monthSelect = document.getElementById('monthSelect');
+
+const metricTotalSlots = document.getElementById('metricTotalSlots');
+const metricAvailable = document.getElementById('metricAvailable');
+const metricTotalBooked = document.getElementById('metricTotalBooked');
+const metricInProduction = document.getElementById('metricInProduction');
+
+const filterAllBtn = document.getElementById('filterAllBtn');
+const filterAvailBtn = document.getElementById('filterAvailBtn');
+const filterBookedBtn = document.getElementById('filterBookedBtn');
+const filterMineBtn = document.getElementById('filterMineBtn');
+
+const countAll = document.getElementById('countAll');
+const countAvail = document.getElementById('countAvail');
+const countBooked = document.getElementById('countBooked');
+const countMine = document.getElementById('countMine');
+
+const slotListContainer = document.getElementById('slotListContainer');
+const slotNotice = document.getElementById('slotNotice');
+
 const myBookings = document.getElementById('myBookings');
 const myBookingsList = document.getElementById('myBookingsList');
 
@@ -118,9 +138,9 @@ const menuAvatarEl = document.getElementById('menuAvatar');
 const yearEl = document.getElementById('year');
 
 let isLoggingOut = false;
+if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-yearEl.textContent = new Date().getFullYear();
-
+// Drawer Menu handlers
 const openMenu = () => {
   menu.classList.add('open');
   menu.setAttribute('aria-hidden', 'false');
@@ -184,32 +204,18 @@ logoutBtn.addEventListener('click', async () => {
   logoutBtn.disabled = true;
   logoutLabel.textContent = 'Keluar...';
 
-  if (state.push.status === 'on') {
-    try {
-      await disablePush(true);
-    } catch (err) {
-      console.error('Push cleanup failed:', err && err.message ? err.message : 'unknown error');
-    }
-  }
-
-  let result;
   try {
-    result = await client.auth.signOut();
+    await client.auth.signOut();
   } catch (err) {
-    result = { error: err };
-  }
-
-  if (result && result.error) {
     try {
       await client.auth.signOut({ scope: 'local' });
-    } catch (err) {
-      console.error('Logout failed:', err && err.message ? err.message : 'unknown error');
-    }
+    } catch (e) {}
   }
 
   window.location.replace(LOGIN_URL);
 });
 
+// Utilities
 function formatDateToLocalISO(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -253,7 +259,7 @@ function translateError(err) {
 }
 
 function badgeClass(status) {
-  return `badge badge-${STATUS_LABEL[status] ? status : 'cancelled'}`;
+  return `badge badge-${status || 'cancelled'}`;
 }
 
 function statusLabel(status) {
@@ -268,21 +274,6 @@ function generateAsciiBlocks(pct) {
   const total = 24;
   const filled = Math.round((pct / 100) * total);
   return '█'.repeat(filled) + '░'.repeat(total - filled);
-}
-
-function animateMetric(el, value) {
-  if (el.textContent === String(value)) return;
-  el.textContent = value;
-  el.classList.remove('bump');
-  void el.offsetWidth;
-  el.classList.add('bump');
-}
-
-function updateMetrics(total, booked, inProd) {
-  const occ = total > 0 ? Math.round((booked / total) * 100) : 0;
-  animateMetric(document.getElementById('metricTotalBooked'), booked);
-  animateMetric(document.getElementById('metricOccupancy'), `${occ}%`);
-  animateMetric(document.getElementById('metricInProduction'), inProd);
 }
 
 function findSlot(slotId) {
@@ -302,155 +293,272 @@ function slotTitle(slot, booking) {
   return slot.status === 'available' ? 'Slot Tersedia' : 'Slot Dipesan';
 }
 
-function cardFootInfo(slot, status) {
-  if (status === 'available') return { left: slot.time_slot || '', right: '', showBar: false };
-  if (status === 'pending') return { left: 'Menunggu konfirmasi', right: '', showBar: false };
-  if (PROGRESS_STATUSES.includes(status)) {
-    return { left: slot.current_phase || '-', right: `${clampProgress(slot)}%`, showBar: true };
+// Populate Month Select Dropdown (if present)
+function initMonthSelector() {
+  if (!monthSelect) return;
+  monthSelect.innerHTML = '';
+  const currentY = now.getFullYear();
+  const currentM = now.getMonth();
+
+  for (let offset = 0; offset < 6; offset++) {
+    const d = new Date(currentY, currentM + offset, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const opt = document.createElement('option');
+    opt.value = `${y}-${m}`;
+    opt.textContent = `${monthNames[m]} ${y}`;
+    if (y === state.viewYear && m === state.viewMonth) {
+      opt.selected = true;
+    }
+    monthSelect.appendChild(opt);
   }
-  return { left: statusLabel(status), right: '', showBar: false };
+
+  monthSelect.addEventListener('change', async (e) => {
+    const [y, m] = e.target.value.split('-').map(Number);
+    state.viewYear = y;
+    state.viewMonth = m;
+    try {
+      await loadSlots();
+      state.loadError = null;
+    } catch (err) {
+      state.slots = [];
+      state.loadError = translateError(err);
+    }
+    renderAll();
+  });
 }
 
-function buildSlotCard(slot) {
+// Setup Filter Buttons
+function setupFilterTabs() {
+  const tabs = [
+    { btn: filterAllBtn, key: 'all' },
+    { btn: filterAvailBtn, key: 'available' },
+    { btn: filterBookedBtn, key: 'booked' },
+    { btn: filterMineBtn, key: 'mine' }
+  ];
+
+  tabs.forEach(({ btn, key }) => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(t => {
+        t.btn.classList.toggle('active', t.key === key);
+        t.btn.setAttribute('aria-selected', t.key === key ? 'true' : 'false');
+      });
+      state.activeFilter = key;
+      renderSlotList();
+    });
+  });
+}
+
+// Build Slot Item Card (Matching user mock visual: 01 OCT / Available / Belum ada booking / DETAIL →)
+function buildSlotItem(slot) {
   const booking = ownBookingForSlot(slot.id);
   const status = booking ? booking.status : slot.status;
-  const info = cardFootInfo(slot, status);
+  const isAvailable = status === 'available';
+  const isBooked = !isAvailable;
+  const progress = clampProgress(slot);
+  const showProgress = PROGRESS_STATUSES.includes(status);
 
-  const card = document.createElement('div');
-  card.className = 'slot-card';
+  // Parse date
+  const [y, m, d] = (slot.scheduled_date || '').split('-').map(Number);
+  const dateObj = new Date(y, (m || 1) - 1, d || 1);
+  const dayNum = String(d || 1).padStart(2, '0');
+  const monthAbbr = monthShort[(m || 1) - 1] || 'SLOT';
+  const weekday = dayNamesShort[dateObj.getDay()] || '';
+
+  const card = document.createElement('article');
+  card.className = 'slot-item';
   card.setAttribute('role', 'button');
   card.tabIndex = 0;
+  card.setAttribute('aria-label', `Slot ${dayNum} ${monthAbbr} - ${statusLabel(status)}`);
 
+  // Top Row: Date lockup & Status
   const top = document.createElement('div');
+  top.className = 'slot-item-top';
+
+  const dateGroup = document.createElement('div');
+  dateGroup.className = 'slot-date-group';
+
+  const daySpan = document.createElement('span');
+  daySpan.className = 'slot-date-day mono';
+  daySpan.textContent = dayNum;
+
+  const monthSpan = document.createElement('span');
+  monthSpan.className = 'slot-date-month';
+  monthSpan.textContent = monthAbbr;
+
+  const weekdaySpan = document.createElement('span');
+  weekdaySpan.className = 'slot-date-weekday';
+  weekdaySpan.textContent = `· ${weekday}`;
+
+  dateGroup.appendChild(daySpan);
+  dateGroup.appendChild(monthSpan);
+  dateGroup.appendChild(weekdaySpan);
+
   const badge = document.createElement('span');
   badge.className = badgeClass(status);
   badge.textContent = statusLabel(status);
-  const name = document.createElement('div');
-  name.className = 'slot-name';
-  name.style.marginTop = '.3rem';
-  name.textContent = slotTitle(slot, booking);
+
+  top.appendChild(dateGroup);
   top.appendChild(badge);
-  top.appendChild(name);
 
-  const bottom = document.createElement('div');
-  const foot = document.createElement('div');
-  foot.className = 'slot-foot';
-  const leftSpan = document.createElement('span');
-  leftSpan.textContent = info.left;
-  const rightSpan = document.createElement('span');
-  rightSpan.className = 'mono';
-  rightSpan.textContent = info.right;
-  foot.appendChild(leftSpan);
-  foot.appendChild(rightSpan);
-  bottom.appendChild(foot);
+  // Content Row: Title, Subtitle, Progress
+  const content = document.createElement('div');
+  content.className = 'slot-item-content';
 
-  if (info.showBar) {
-    const bar = document.createElement('div');
-    bar.className = 'slot-bar';
-    const fill = document.createElement('div');
-    fill.className = 'slot-bar-fill';
-    fill.style.width = `${clampProgress(slot)}%`;
-    bar.appendChild(fill);
-    bottom.appendChild(bar);
+  const title = document.createElement('h2');
+  title.className = 'slot-title';
+  title.textContent = slotTitle(slot, booking);
+
+  const sub = document.createElement('p');
+  sub.className = 'slot-subtitle';
+  if (isAvailable) {
+    sub.textContent = slot.time_slot ? `Slot masih kosong · Jam Upload ${slot.time_slot}` : 'Belum ada booking';
+  } else if (booking) {
+    sub.textContent = `Booking Anda · ${booking.ip || 'Minecraft Server'}`;
+  } else {
+    sub.textContent = slot.current_phase ? `Fase: ${slot.current_phase}` : 'Slot telah dibooking';
   }
 
-  card.appendChild(top);
-  card.appendChild(bottom);
+  content.appendChild(title);
+  content.appendChild(sub);
 
-  const open = () => openDetailView(slot.id, booking ? booking.id : null);
-  card.addEventListener('click', open);
+  if (showProgress) {
+    const progBlock = document.createElement('div');
+    progBlock.className = 'slot-progress-block';
+
+    const progInfo = document.createElement('div');
+    progInfo.className = 'slot-progress-info';
+    progInfo.innerHTML = `<span>${slot.current_phase || 'Pengerjaan'}</span><span class="mono">${progress}%</span>`;
+
+    const progBar = document.createElement('div');
+    progBar.className = 'slot-progress-bar';
+    const progFill = document.createElement('div');
+    progFill.className = 'slot-progress-fill';
+    progFill.style.width = `${progress}%`;
+    progBar.appendChild(progFill);
+
+    progBlock.appendChild(progInfo);
+    progBlock.appendChild(progBar);
+    content.appendChild(progBlock);
+  }
+
+  // Footer Row: Tags & Action
+  const foot = document.createElement('div');
+  foot.className = 'slot-item-footer';
+
+  const metaTags = document.createElement('div');
+  metaTags.className = 'slot-meta-tags';
+  const tagContent = slot.content_type || 'Video Endorse';
+  const timeText = slot.time_slot ? ` · ${slot.time_slot}` : '';
+  metaTags.textContent = `${tagContent}${timeText}`;
+
+  const action = document.createElement('div');
+  const isPast = !!slot.scheduled_date && slot.scheduled_date < formatDateToLocalISO(new Date());
+  const tooSoon = !isPast && !!slot.scheduled_date && slot.scheduled_date < minBookableDate();
+  const canBook = isAvailable && !isPast && !tooSoon;
+
+  if (canBook) {
+    action.className = 'slot-action-btn book-btn';
+    action.textContent = 'BOOK →';
+  } else {
+    action.className = 'slot-action-btn';
+    action.textContent = 'DETAIL →';
+  }
+
+  foot.appendChild(metaTags);
+  foot.appendChild(action);
+
+  card.appendChild(top);
+  card.appendChild(content);
+  card.appendChild(foot);
+
+  // Interaction handlers
+  const handleOpen = (e) => {
+    // If clicking action directly and can book, directly open booking modal
+    if (canBook && e && e.target && e.target.closest('.book-btn')) {
+      e.stopPropagation();
+      openBookingModal(slot);
+      return;
+    }
+    openDetailView(slot.id, booking ? booking.id : null);
+  };
+
+  card.addEventListener('click', handleOpen);
   card.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      open();
+      handleOpen(e);
     }
   });
+
   return card;
 }
 
-function renderCalendar() {
-  calendarGridBody.innerHTML = '';
+// Render Slot List according to active filter
+function renderSlotList() {
+  slotListContainer.innerHTML = '';
 
-  const todayIso = formatDateToLocalISO(new Date());
-  const year = state.viewYear;
-  const month = state.viewMonth;
-  calendarMonthTitle.textContent = `${monthNames[month]} ${year}`;
+  let filtered = state.slots.slice();
 
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startDayOfWeek = new Date(year, month, 1).getDay();
-
-  const slotsByDate = {};
-  state.slots.forEach(slot => {
-    (slotsByDate[slot.scheduled_date] = slotsByDate[slot.scheduled_date] || []).push(slot);
-  });
-
-  for (let i = 0; i < startDayOfWeek; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'day-cell empty';
-    calendarGridBody.appendChild(cell);
+  if (state.activeFilter === 'available') {
+    filtered = filtered.filter(s => s.status === 'available');
+  } else if (state.activeFilter === 'booked') {
+    filtered = filtered.filter(s => ACTIVE_STATUSES.includes(s.status));
+  } else if (state.activeFilter === 'mine') {
+    const mySlotIds = new Set(state.bookings.map(b => b.slot_id));
+    filtered = filtered.filter(s => mySlotIds.has(s.id));
   }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = formatDateToLocalISO(new Date(year, month, day));
-    const daySlots = slotsByDate[dateStr] || [];
-
-    const cell = document.createElement('div');
-    cell.className = 'day-cell';
-    if (dateStr === todayIso) cell.classList.add('today');
-    if (!daySlots.length) cell.classList.add('no-slot');
-
-    const top = document.createElement('div');
-    top.className = 'day-top';
-    const num = document.createElement('span');
-    num.className = 'day-num';
-    num.textContent = day;
-    const tag = document.createElement('span');
-    tag.className = 'day-tag';
-    tag.textContent = dateStr === todayIso ? 'HARI INI' : (daySlots.length ? 'EST. UPLOAD' : '');
-    top.appendChild(num);
-    top.appendChild(tag);
-    cell.appendChild(top);
-
-    if (daySlots.length) {
-      const wrap = document.createElement('div');
-      wrap.className = 'day-slots';
-      daySlots.forEach(slot => wrap.appendChild(buildSlotCard(slot)));
-      cell.appendChild(wrap);
-    }
-
-    calendarGridBody.appendChild(cell);
-  }
-
-  const totalSlots = state.slots.length;
-  const totalBooked = state.slots.filter(s => ACTIVE_STATUSES.includes(s.status)).length;
-  const totalInProd = state.slots.filter(s => s.status === 'in_production').length;
-
-  let loadLabel = 'Normal';
-  if (totalBooked > 10) loadLabel = 'Tinggi';
-  else if (totalBooked > 5) loadLabel = 'Sedang';
-  calendarWorkload.innerHTML = '';
-  const loadText = document.createTextNode(`Beban Kerja: ${loadLabel} · `);
-  const loadMono = document.createElement('span');
-  loadMono.className = 'mono';
-  loadMono.textContent = `${totalBooked}/${totalSlots}`;
-  calendarWorkload.appendChild(loadText);
-  calendarWorkload.appendChild(loadMono);
-
-  updateMetrics(totalSlots, totalBooked, totalInProd);
 
   if (state.loadError) {
-    calendarNotice.textContent = state.loadError;
-    calendarNotice.className = 'calendar-notice error';
-    calendarNotice.hidden = false;
-  } else if (!totalSlots) {
-    calendarNotice.textContent = 'Belum ada slot pada bulan ini.';
-    calendarNotice.className = 'calendar-notice';
-    calendarNotice.hidden = false;
+    slotNotice.textContent = state.loadError;
+    slotNotice.className = 'slot-notice error';
+    slotNotice.hidden = false;
+  } else if (!state.slots.length) {
+    slotNotice.textContent = 'Belum ada jadwal slot upload yang tersedia.';
+    slotNotice.className = 'slot-notice';
+    slotNotice.hidden = false;
+  } else if (!filtered.length) {
+    slotNotice.textContent = 'Tidak ada slot yang cocok dengan filter yang dipilih.';
+    slotNotice.className = 'slot-notice';
+    slotNotice.hidden = false;
   } else {
-    calendarNotice.hidden = true;
+    slotNotice.hidden = true;
+    filtered.forEach(slot => {
+      slotListContainer.appendChild(buildSlotItem(slot));
+    });
   }
 }
 
+// Update Top Metrics & Filter Badges
+function updateStats() {
+  const total = state.slots.length;
+  const avail = state.slots.filter(s => s.status === 'available').length;
+  const booked = state.slots.filter(s => ACTIVE_STATUSES.includes(s.status)).length;
+  const inProd = state.slots.filter(s => s.status === 'in_production').length;
+  const mine = state.bookings.filter(b => ACTIVE_STATUSES.includes(b.status)).length;
+
+  metricTotalSlots.textContent = total;
+  metricAvailable.textContent = avail;
+  metricTotalBooked.textContent = booked;
+  metricInProduction.textContent = inProd;
+
+  countAll.textContent = total;
+  countAvail.textContent = avail;
+  countBooked.textContent = booked;
+  countMine.textContent = mine;
+
+  if (monthHeroTitle) {
+    monthHeroTitle.textContent = 'Jadwal Slot Upload';
+  }
+  if (monthSelect) {
+    const selectVal = `${state.viewYear}-${state.viewMonth}`;
+    if (monthSelect.value !== selectVal) {
+      monthSelect.value = selectVal;
+    }
+  }
+}
+
+// Render "Riwayat Booking Saya" section
 function renderMyBookings() {
   myBookingsList.innerHTML = '';
   myBookings.hidden = !state.bookings.length;
@@ -464,6 +572,7 @@ function renderMyBookings() {
     const name = document.createElement('div');
     name.className = 'my-name';
     name.textContent = booking.server_name;
+
     const sub = document.createElement('div');
     sub.className = 'my-sub mono';
     const slot = booking.slot;
@@ -482,26 +591,29 @@ function renderMyBookings() {
   });
 }
 
-function showCalendarView() {
+// Views Navigation
+function showListView() {
   detailView.classList.add('hidden');
-  calendarView.classList.remove('hidden');
+  slotListView.classList.remove('hidden');
+  window.scrollTo(0, 0);
 }
 
 function closeDetailView() {
   state.detail = { slotId: null, bookingId: null };
   closeChat();
-  showCalendarView();
+  showListView();
 }
 
 function openDetailView(slotId, bookingId) {
   state.detail = { slotId, bookingId: bookingId || null };
   renderDetail();
   if (!state.detail.slotId) return;
-  calendarView.classList.add('hidden');
+  slotListView.classList.add('hidden');
   detailView.classList.remove('hidden');
   window.scrollTo(0, 0);
 }
 
+// Render Slot Detail
 function renderDetail() {
   const slot = findSlot(state.detail.slotId);
   if (!slot) {
@@ -518,17 +630,15 @@ function renderDetail() {
   detailHeaderBadge.innerHTML = '';
   const hb = document.createElement('span');
   hb.className = badgeClass(status);
-  hb.style.fontSize = '.68rem';
-  hb.style.padding = '.28rem .6rem';
   hb.textContent = statusLabel(status);
   detailHeaderBadge.appendChild(hb);
 
   detailServerName.textContent = slotTitle(slot, booking);
-  detailCategory.textContent = slot.category || '-';
+  detailCategory.textContent = slot.category || 'Minecraft Server';
   detailScheduledDate.textContent = slot.scheduled_date || '-';
   detailTimeSlot.textContent = slot.time_slot || '-';
-  detailContentType.textContent = slot.content_type || '-';
-  detailDescription.textContent = slot.description || 'Tidak ada deskripsi.';
+  detailContentType.textContent = slot.content_type || 'Video Endorse';
+  detailDescription.textContent = slot.description || 'Tidak ada deskripsi khusus.';
 
   const showProgress = PROGRESS_STATUSES.includes(slot.status);
   progressCard.hidden = !showProgress;
@@ -611,14 +721,14 @@ function renderBookingInfoSection(slot, booking) {
 
   if (!booking) {
     if (canBook) {
-      appendEmptyState('Slot ini masih tersedia.');
+      appendEmptyState('Slot tanggal ini masih tersedia dan dapat dipesan.');
       appendBookButton(slot);
     } else if (slot.status === 'available' && isPast) {
       appendEmptyState('Tanggal slot ini sudah lewat.');
     } else if (slot.status === 'available') {
-      appendEmptyState('Booking dibuka minimal H+3 dari hari ini.');
+      appendEmptyState('Booking hanya dapat dilakukan minimal H+3 dari hari ini.');
     } else {
-      appendEmptyState('Slot ini sudah dipesan.');
+      appendEmptyState('Slot ini sudah dipesan oleh pengguna lain.');
     }
     return;
   }
@@ -670,7 +780,7 @@ function renderBookingInfoSection(slot, booking) {
   noteLabel.textContent = 'Fitur yang Mau Dibahas';
   const noteText = document.createElement('div');
   noteText.className = 'booking-note-text';
-  noteText.textContent = booking.features || 'Tidak ada catatan.';
+  noteText.textContent = booking.features || 'Tidak ada catatan khusus.';
   noteWrap.appendChild(noteLabel);
   noteWrap.appendChild(noteText);
   bookingDetailsContainer.appendChild(noteWrap);
@@ -703,17 +813,99 @@ async function cancelBooking(booking, button) {
   }
 }
 
+// Modal Booking Handlers
 function openBookingModal(slot) {
+  if (!state.user) {
+    showToast('Silakan login terlebih dahulu untuk melakukan booking slot.');
+    setTimeout(() => {
+      window.location.href = LOGIN_URL;
+    }, 1200);
+    return;
+  }
+
   state.bookingSlotId = slot.id;
-  modalBookingTitle.textContent = `Book Slot Upload (${[slot.scheduled_date, slot.time_slot].filter(Boolean).join(' · ')})`;
+  modalBookingTitle.textContent = `Book Slot (${[slot.scheduled_date, slot.time_slot].filter(Boolean).join(' · ')})`;
   bookingForm.reset();
   bookingModal.classList.add('active');
+  setTimeout(() => {
+    const firstInput = document.getElementById('bookServerName');
+    if (firstInput) firstInput.focus();
+  }, 100);
 }
 
 function closeBookingModal() {
   bookingModal.classList.remove('active');
 }
 
+btnCloseBookingModal.addEventListener('click', closeBookingModal);
+btnCancelBookingModal.addEventListener('click', closeBookingModal);
+bookingModal.addEventListener('click', (e) => {
+  if (e.target === bookingModal) closeBookingModal();
+});
+
+bookingForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (state.isBooking || !state.bookingSlotId) return;
+
+  const serverName = document.getElementById('bookServerName').value.trim();
+  const ip = document.getElementById('bookIp').value.trim();
+  const port = document.getElementById('bookPort').value.trim();
+  const features = document.getElementById('bookFeatures').value.trim();
+  const socialMedia = document.getElementById('bookSocialMedia').value.trim();
+
+  if (!serverName || !ip || !port || !features || !socialMedia) {
+    showToast('Mohon lengkapi seluruh isian wajib.');
+    return;
+  }
+
+  if (!PORT_PATTERN.test(port)) {
+    showToast('Port harus berupa angka, contoh: 25565 atau 25565 / 19132.');
+    return;
+  }
+
+  if (!/^https?:\/\//i.test(socialMedia)) {
+    showToast('Link media sosial harus diawali http:// atau https://.');
+    return;
+  }
+
+  const targetSlot = findSlot(state.bookingSlotId);
+  if (targetSlot && targetSlot.scheduled_date && targetSlot.scheduled_date < minBookableDate()) {
+    showToast('Booking hanya bisa dilakukan minimal H+3 dari hari ini.');
+    return;
+  }
+
+  const slotId = state.bookingSlotId;
+  state.isBooking = true;
+  btnSubmitBooking.disabled = true;
+  btnSubmitBooking.textContent = 'Memproses...';
+
+  try {
+    const { data, error } = await client.rpc('book_endorser_slot', {
+      p_slot_id: slotId,
+      p_server_name: serverName,
+      p_ip: ip,
+      p_port: port,
+      p_features: features,
+      p_social_media: socialMedia
+    });
+    if (error) throw error;
+
+    closeBookingModal();
+    bookingForm.reset();
+    showToast('Booking terkirim! Menunggu konfirmasi admin.');
+    await refreshAll(true);
+    openDetailView(slotId, data && data.id ? data.id : null);
+  } catch (err) {
+    showToast(translateError(err));
+    refreshAll(true);
+  } finally {
+    state.isBooking = false;
+    btnSubmitBooking.disabled = false;
+    btnSubmitBooking.textContent = 'Konfirmasi Booking';
+  }
+});
+
+// Chat handlers
 function renderChat() {
   chatList.innerHTML = '';
   state.chat.messages.forEach(message => {
@@ -774,7 +966,7 @@ async function openChat(conversationId) {
   } else {
     state.chat.messages = data || [];
     if (state.chat.messages.length) renderChat();
-    else renderChatNotice('Belum ada pesan.');
+    else renderChatNotice('Belum ada pesan. Mulai diskusi mengenai persiapan video endorse.');
   }
 
   state.chat.channel = client
@@ -788,26 +980,52 @@ async function openChat(conversationId) {
     .subscribe();
 }
 
-async function loadSlots() {
-  const year = state.viewYear;
-  const month = state.viewMonth;
-  const start = formatDateToLocalISO(new Date(year, month, 1));
-  const end = formatDateToLocalISO(new Date(year, month + 1, 0));
+chatForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  const conversationId = state.chat.conversationId;
+  if (!text || !conversationId) return;
 
+  chatSend.disabled = true;
+  try {
+    const { data, error } = await client
+      .from(TABLES.messages)
+      .insert({ conversation_id: conversationId, sender_id: state.user.id, body: text })
+      .select('id, sender_id, body, created_at')
+      .single();
+    if (error) throw error;
+    chatInput.value = '';
+    addChatMessage(data);
+  } catch (err) {
+    showToast(translateError(err));
+  } finally {
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+});
+
+btnBackToCalendar.addEventListener('click', () => {
+  closeDetailView();
+  renderAll();
+});
+
+// Data Loading
+async function loadSlots() {
   const { data, error } = await client
     .from(TABLES.slots)
     .select('*')
-    .gte('scheduled_date', start)
-    .lte('scheduled_date', end)
     .order('scheduled_date', { ascending: true })
     .order('time_slot', { ascending: true });
 
   if (error) throw error;
-  if (year !== state.viewYear || month !== state.viewMonth) return;
   state.slots = data || [];
 }
 
 async function loadBookings() {
+  if (!state.user) {
+    state.bookings = [];
+    return;
+  }
   const { data, error } = await client
     .from(TABLES.bookings)
     .select(`*, slot:${TABLES.slots}(*)`)
@@ -842,7 +1060,8 @@ async function loadConversations() {
 }
 
 function renderAll() {
-  renderCalendar();
+  updateStats();
+  renderSlotList();
   renderMyBookings();
   if (state.detail.slotId) renderDetail();
 }
@@ -859,20 +1078,6 @@ async function refreshAll(silent) {
   renderAll();
 }
 
-async function changeMonth(delta) {
-  const target = new Date(state.viewYear, state.viewMonth + delta, 1);
-  state.viewYear = target.getFullYear();
-  state.viewMonth = target.getMonth();
-  try {
-    await loadSlots();
-    state.loadError = null;
-  } catch (err) {
-    state.slots = [];
-    state.loadError = translateError(err);
-  }
-  renderCalendar();
-}
-
 let refreshTimer = null;
 function scheduleRefresh() {
   clearTimeout(refreshTimer);
@@ -880,118 +1085,23 @@ function scheduleRefresh() {
 }
 
 function subscribeRealtime() {
-  if (state.liveChannel) return;
+  if (state.liveChannel || !client) return;
 
-  state.liveChannel = client
-    .channel('endorser-live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.slots }, scheduleRefresh)
-    .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.bookings, filter: `user_id=eq.${state.user.id}` }, scheduleRefresh)
-    .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.conversations }, scheduleRefresh)
-    .subscribe();
+  const channel = client.channel('endorser-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.slots }, scheduleRefresh);
+
+  if (state.user && state.user.id) {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: TABLES.bookings, filter: `user_id=eq.${state.user.id}` }, scheduleRefresh);
+  }
+  channel.on('postgres_changes', { event: '*', schema: 'public', table: TABLES.conversations }, scheduleRefresh);
+
+  state.liveChannel = channel.subscribe();
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     scheduleRefresh();
   });
 }
-
-btnPrevMonth.addEventListener('click', () => changeMonth(-1));
-btnNextMonth.addEventListener('click', () => changeMonth(1));
-
-btnBackToCalendar.addEventListener('click', () => {
-  closeDetailView();
-  renderAll();
-});
-
-btnCloseBookingModal.addEventListener('click', closeBookingModal);
-btnCancelBookingModal.addEventListener('click', closeBookingModal);
-bookingModal.addEventListener('click', (e) => { if (e.target === bookingModal) closeBookingModal(); });
-
-bookingForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (state.isBooking || !state.bookingSlotId) return;
-
-  const serverName = document.getElementById('bookServerName').value.trim();
-  const ip = document.getElementById('bookIp').value.trim();
-  const port = document.getElementById('bookPort').value.trim();
-  const features = document.getElementById('bookFeatures').value.trim();
-  const socialMedia = document.getElementById('bookSocialMedia').value.trim();
-
-  if (!serverName || !ip || !port || !features || !socialMedia) {
-    showToast('Mohon lengkapi seluruh field wajib.');
-    return;
-  }
-
-  if (!PORT_PATTERN.test(port)) {
-    showToast('Port harus berupa angka, contoh: 25565 atau 25565 / 19132.');
-    return;
-  }
-
-  if (!/^https?:\/\//i.test(socialMedia)) {
-    showToast('Link media sosial harus diawali http:// atau https://.');
-    return;
-  }
-
-  const targetSlot = findSlot(state.bookingSlotId);
-  if (targetSlot && targetSlot.scheduled_date && targetSlot.scheduled_date < minBookableDate()) {
-    showToast('Booking hanya bisa dilakukan minimal H+3 dari hari ini.');
-    return;
-  }
-
-  const slotId = state.bookingSlotId;
-  state.isBooking = true;
-  btnSubmitBooking.disabled = true;
-  btnSubmitBooking.textContent = 'Memproses...';
-
-  try {
-    const { data, error } = await client.rpc('book_endorser_slot', {
-      p_slot_id: slotId,
-      p_server_name: serverName,
-      p_ip: ip,
-      p_port: port,
-      p_features: features,
-      p_social_media: socialMedia
-    });
-    if (error) throw error;
-
-    closeBookingModal();
-    bookingForm.reset();
-    showToast('Booking terkirim. Menunggu konfirmasi admin.');
-    await refreshAll(true);
-    openDetailView(slotId, data && data.id ? data.id : null);
-  } catch (err) {
-    showToast(translateError(err));
-    refreshAll(true);
-  } finally {
-    state.isBooking = false;
-    btnSubmitBooking.disabled = false;
-    btnSubmitBooking.textContent = 'Konfirmasi Booking';
-  }
-});
-
-chatForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const text = chatInput.value.trim();
-  const conversationId = state.chat.conversationId;
-  if (!text || !conversationId) return;
-
-  chatSend.disabled = true;
-  try {
-    const { data, error } = await client
-      .from(TABLES.messages)
-      .insert({ conversation_id: conversationId, sender_id: state.user.id, body: text })
-      .select('id, sender_id, body, created_at')
-      .single();
-    if (error) throw error;
-    chatInput.value = '';
-    addChatMessage(data);
-  } catch (err) {
-    showToast(translateError(err));
-  } finally {
-    chatSend.disabled = false;
-    chatInput.focus();
-  }
-});
 
 function showGateError(message) {
   gateText.textContent = message;
@@ -1000,11 +1110,15 @@ function showGateError(message) {
 
 gateRetry.addEventListener('click', () => window.location.reload());
 
+// Boot Application
 async function boot() {
   if (!client) {
     showGateError('Konfigurasi Supabase belum lengkap. Isi SUPABASE_URL dan SUPABASE_ANON_KEY dengan benar.');
     return;
   }
+
+  initMonthSelector();
+  setupFilterTabs();
 
   let user = null;
 
@@ -1018,50 +1132,49 @@ async function boot() {
         user = userData.user;
       } else if (userError && userError.status >= 400 && userError.status < 500) {
         await client.auth.signOut({ scope: 'local' });
-      } else {
-        showGateError('Tidak dapat memverifikasi sesi. Periksa koneksi internet Anda lalu coba lagi.');
-        return;
       }
     }
   } catch (err) {
-    showGateError('Tidak dapat memverifikasi sesi. Periksa koneksi internet Anda lalu coba lagi.');
-    return;
-  }
-
-  if (!user) {
-    window.location.replace(LOGIN_URL);
-    return;
+    console.warn('Session verification skipped, continuing as guest:', err);
   }
 
   state.user = user;
 
-  const metadata = user.user_metadata || {};
-  const emailName = user.email ? user.email.split('@')[0] : 'Pengguna';
+  if (user) {
+    const metadata = user.user_metadata || {};
+    const emailName = user.email ? user.email.split('@')[0] : 'Pengguna';
 
-  const renderName = (name) => {
-    menuNameEl.textContent = name;
-    menuAvatarEl.innerHTML = '<img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile">';
-  };
+    const renderName = (name) => {
+      if (menuNameEl) menuNameEl.textContent = name;
+    };
 
-  renderName(String(metadata.full_name || metadata.name || emailName).trim() || emailName);
-  menuEmailEl.textContent = user.email || '';
+    renderName(String(metadata.full_name || metadata.name || emailName).trim() || emailName);
+    if (menuEmailEl) menuEmailEl.textContent = user.email || '';
+    if (logoutLabel) logoutLabel.textContent = 'Logout';
 
-  try {
-    const { data: profile } = await client
-      .from('profiles')
-      .select('full_name')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    try {
+      const { data: profile } = await client
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    if (profile && profile.full_name && profile.full_name.trim()) {
-      renderName(profile.full_name.trim());
+      if (profile && profile.full_name && profile.full_name.trim()) {
+        renderName(profile.full_name.trim());
+      }
+    } catch (err) {
+      console.error('Profile fetch failed:', err && err.message ? err.message : 'unknown error');
     }
-  } catch (err) {
-    console.error('Profile fetch failed:', err && err.message ? err.message : 'unknown error');
+  } else {
+    if (menuNameEl) menuNameEl.textContent = 'Tamu';
+    if (menuEmailEl) menuEmailEl.textContent = 'Belum login';
+    if (logoutLabel) logoutLabel.textContent = 'Login';
   }
 
   client.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') window.location.replace(LOGIN_URL);
+    if (event === 'SIGNED_OUT' && state.user) {
+      window.location.replace(LOGIN_URL);
+    }
   });
 
   await refreshAll(false);
