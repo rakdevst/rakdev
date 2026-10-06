@@ -35,12 +35,7 @@ async function checkCurrentSession() {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session && session.user) {
-      const isAdmin = await isCurrentUserAdmin(session.user);
-      if (isAdmin && redirectTarget === '/dashboard') {
-        window.location.replace('/admin.html');
-      } else {
-        window.location.replace(redirectTarget);
-      }
+      window.location.replace(redirectTarget);
     }
   } catch (e) {}
 }
@@ -82,12 +77,7 @@ form.addEventListener('submit', async (e) => {
     }
 
     if (data && data.user) {
-      const isAdmin = await isCurrentUserAdmin(data.user);
-      if (isAdmin && redirectTarget === '/dashboard') {
-        window.location.replace('/admin.html');
-      } else {
-        window.location.replace(redirectTarget);
-      }
+      window.location.replace(redirectTarget);
     }
   } catch (err) {
     showAlert(err.message || 'Gagal masuk. Silakan coba lagi.');

@@ -5,6 +5,7 @@
 export const SUPABASE_URL = 'https://shkxmedtmkbmykzogery.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_3hDUbJHHVocYsa4hC0045A_17Lyo0zU';
 export const ADMIN_EMAIL = 'akunrakaaja35@gmail.com';
+export const ADMIN_UID = 'e412db1b-62ea-4556-b669-93268a275879';
 
 export const isConfigured = /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\/?$/i.test(SUPABASE_URL) &&
   SUPABASE_ANON_KEY.length > 30;
@@ -57,6 +58,7 @@ export async function getCurrentUser() {
 export async function isCurrentUserAdmin(user = null) {
   if (!user) user = await getCurrentUser();
   if (!user) return false;
+  if (user.id === ADMIN_UID) return true;
   if (user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return true;
 
   if (supabase) {
@@ -107,43 +109,8 @@ export async function initSmartNavbar(activePage = '') {
     if (logoutLabel) logoutLabel.textContent = 'Login';
   }
 
-  if (isAdmin) {
-    const headerInner = document.querySelector('.header-inner');
-    if (headerInner && !document.getElementById('smartAdminBtn')) {
-      const adminBtn = document.createElement('a');
-      adminBtn.id = 'smartAdminBtn';
-      adminBtn.href = '/admin.html';
-      adminBtn.className = 'smart-admin-badge';
-      adminBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M12 2l7 4v6c0 5-3.5 9.5-7 10-3.5-.5-7-5-7-10V6l7-4z"/>
-        </svg>
-        <span>Admin</span>
-      `;
-      adminBtn.setAttribute('title', 'Akses Panel Pengelolaan rakDEV');
-
-      const actions = headerInner.querySelector('.header-actions');
-      if (actions) {
-        headerInner.insertBefore(adminBtn, actions);
-      } else {
-        headerInner.appendChild(adminBtn);
-      }
-    }
-
-    const menuNav = document.querySelector('.menu-nav');
-    if (menuNav && !document.getElementById('menuAdminLink')) {
-      const adminItem = document.createElement('a');
-      adminItem.id = 'menuAdminLink';
-      adminItem.href = '/admin.html';
-      adminItem.className = 'menu-item admin-menu-highlight';
-      adminItem.innerHTML = `
-        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3.5 9.5-7 10-3.5-.5-7-5-7-10V6l7-4z"/></svg>
-        <span>Admin Panel</span>
-        <span class="badge" style="background:#0f172a;color:#fff;margin-left:auto">ADMIN</span>
-      `;
-      menuNav.insertBefore(adminItem, menuNav.firstChild);
-    }
-  }
+  // Catatan: Tombol / link Admin bersifat rahasia (tidak ditampilkan di navigasi publik).
+  // Akses admin hanya melalui URL langsung: /admin (studio.rakdev.web.id/admin)
 
   return { user, isAdmin };
 }

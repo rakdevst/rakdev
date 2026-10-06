@@ -140,12 +140,9 @@ function renderSlots() {
       slotNotice.innerHTML = `
         <div style="padding:1rem;text-align:center">
           <p style="margin-bottom:0.5rem;font-weight:600">Belum ada slot endorser yang terdaftar di database.</p>
-          <p style="font-size:0.8rem;color:var(--ink-soft);margin-bottom:0.75rem">
-            Jika ini project baru, silakan jalankan file <code>supabase_schema.sql</code> di SQL Editor Supabase untuk memuat data slot awal.
+          <p style="font-size:0.8rem;color:var(--ink-soft)">
+            Silakan periksa kembali beberapa saat lagi atau hubungi tim rakDEV Studio.
           </p>
-          <a href="/admin.html" style="font-size:0.8rem;font-weight:700;color:var(--primary);text-decoration:none">
-            Buka Panel Admin &rarr;
-          </a>
         </div>
       `;
     } else {

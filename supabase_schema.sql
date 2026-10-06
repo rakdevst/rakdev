@@ -74,6 +74,11 @@ BEGIN
     RETURN FALSE;
   END IF;
 
+  -- Cek langsung UID admin utama
+  IF check_user_id = 'e412db1b-62ea-4556-b669-93268a275879'::uuid THEN
+    RETURN TRUE;
+  END IF;
+
   RETURN EXISTS (
     SELECT 1 FROM public.profiles
     WHERE user_id = check_user_id
@@ -422,14 +427,48 @@ CREATE POLICY "Storage admin tutorial-thumbnails" ON storage.objects FOR ALL TO 
 -- ==============================================================================
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.endorser_slots;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.endorser_bookings;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.resources;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.tutorials;
-EXCEPTION WHEN duplicate_object THEN END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.endorser_slots;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.endorser_bookings;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.resources;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.tutorials;
+  EXCEPTION 
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
 END $$;
 
 -- ==============================================================================
