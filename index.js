@@ -1,205 +1,222 @@
-(function () {
+import { 
+  supabase, 
+  initSmartNavbar, 
+  bindLogoutButton, 
+  getSmartHubOverview 
+} from '/shared/supabaseClient.js';
+
+const gate = document.getElementById('gate');
+const menuBtn = document.getElementById('menuBtn');
+const menu = document.getElementById('menu');
+const scrim = document.getElementById('scrim');
+const menuClose = document.getElementById('menuClose');
+
+// Elements
+const slotBadgeCount = document.getElementById('slotBadgeCount');
+const slotNextInfo = document.getElementById('slotNextInfo');
+const resBadgeCount = document.getElementById('resBadgeCount');
+const tutBadgeCount = document.getElementById('tutBadgeCount');
+
+// Smart search elements
+const searchInput = document.getElementById('smartSearchInput');
+const searchResults = document.getElementById('smartSearchResults');
+const btnClearSearch = document.getElementById('btnClearSearch');
+
+// User booking banner
+const userBookingBanner = document.getElementById('userBookingBanner');
+const userBookingTitle = document.getElementById('userBookingTitle');
+const userBookingSub = document.getElementById('userBookingSub');
+
+// Drawer control
+function openMenu() {
+  menu.classList.add('open');
+  menu.setAttribute('aria-hidden', 'false');
+  scrim.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMenu() {
+  menu.classList.remove('open');
+  menu.setAttribute('aria-hidden', 'true');
+  scrim.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+menuBtn.addEventListener('click', openMenu);
+menuClose.addEventListener('click', closeMenu);
+scrim.addEventListener('click', closeMenu);
+
+bindLogoutButton('logoutBtn', 'logoutLabel');
+
+// Smart Search Across Resources & Tutorials
+let allResources = [];
+let allTutorials = [];
+
+async function loadSearchCache() {
+  if (!supabase) return;
   try {
-    const p = window.location.pathname;
-    if (p.endsWith('index.html') || p.endsWith('/') || p === '' || p.endsWith('/index')) {
-      const cleanPath = p.replace(/\/?index(\.html)?$/, '').replace(/\/+$/, '') + '/dashboard';
-      window.history.replaceState(null, '', (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath) + window.location.search + window.location.hash);
-    }
+    const { data: res } = await supabase.from('resources').select('id, title, category');
+    if (res) allResources = res;
   } catch (e) {}
-})();
-
-const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
-const LOGIN_URL = 'login.html';
-
-const isConfigured = /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\/?$/i.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 40;
-const client = window.supabase && isConfigured
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
-
-document.addEventListener('DOMContentLoaded', async () => {
-  const body = document.body;
-  const gate = document.getElementById('gate');
-  const gateText = document.getElementById('gateText');
-  const gateRetry = document.getElementById('gateRetry');
-  const menuBtn = document.getElementById('menuBtn');
-  const menu = document.getElementById('menu');
-  const scrim = document.getElementById('scrim');
-  const menuClose = document.getElementById('menuClose');
-  const menuDashboard = document.getElementById('menuDashboard');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const logoutLabel = document.getElementById('logoutLabel');
-  const userNameEl = document.getElementById('userName');
-  const menuNameEl = document.getElementById('menuName');
-  const menuEmailEl = document.getElementById('menuEmail');
-  const menuAvatarEl = document.getElementById('menuAvatar');
-  const yearEl = document.getElementById('year');
-
-  let isLoggingOut = false;
-
-  yearEl.textContent = new Date().getFullYear();
-
-  const showGateError = (message) => {
-    gateText.textContent = message;
-    gate.classList.add('error');
-  };
-
-  const openMenu = () => {
-    menu.classList.add('open');
-    menu.setAttribute('aria-hidden', 'false');
-    scrim.classList.add('show');
-    body.classList.add('menu-open');
-    menuBtn.setAttribute('aria-expanded', 'true');
-    menuBtn.setAttribute('aria-label', 'Tutup menu');
-    menuClose.focus();
-  };
-
-  const closeMenu = (returnFocus) => {
-    menu.classList.remove('open');
-    menu.setAttribute('aria-hidden', 'true');
-    scrim.classList.remove('show');
-    body.classList.remove('menu-open');
-    menuBtn.setAttribute('aria-expanded', 'false');
-    menuBtn.setAttribute('aria-label', 'Buka menu');
-    if (returnFocus) menuBtn.focus();
-  };
-
-  menuBtn.addEventListener('click', () => {
-    if (menu.classList.contains('open')) {
-      closeMenu(true);
-    } else {
-      openMenu();
-    }
-  });
-
-  menuClose.addEventListener('click', () => closeMenu(true));
-  scrim.addEventListener('click', () => closeMenu(true));
-
-  document.addEventListener('keydown', (e) => {
-    if (!menu.classList.contains('open')) return;
-
-    if (e.key === 'Escape') {
-      closeMenu(true);
-      return;
-    }
-
-    if (e.key === 'Tab') {
-      const focusable = Array.from(menu.querySelectorAll('a[href], button:not([disabled])'));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  });
-
-  menuDashboard.addEventListener('click', (e) => {
-    e.preventDefault();
-    closeMenu(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-
-  menu.querySelectorAll('a.menu-item').forEach((link) => {
-    if (link === menuDashboard) return;
-    link.addEventListener('click', () => closeMenu(false));
-  });
-
-  logoutBtn.addEventListener('click', async () => {
-    if (isLoggingOut || !client) return;
-
-    isLoggingOut = true;
-    logoutBtn.disabled = true;
-    logoutLabel.textContent = 'Keluar...';
-
-    let result;
-    try {
-      result = await client.auth.signOut();
-    } catch (err) {
-      result = { error: err };
-    }
-
-    if (result && result.error) {
-      try {
-        await client.auth.signOut({ scope: 'local' });
-      } catch (err) {
-        console.error('Logout failed:', err && err.message ? err.message : 'unknown error');
-      }
-    }
-
-    window.location.replace(LOGIN_URL);
-  });
-
-  gateRetry.addEventListener('click', () => window.location.reload());
-
-  if (!client) {
-    showGateError('Konfigurasi Supabase belum lengkap. Isi SUPABASE_URL dan SUPABASE_ANON_KEY dengan benar.');
-    return;
-  }
-
-  let user = null;
 
   try {
-    const { data: sessionData } = await client.auth.getSession();
+    const { data: tut } = await supabase.from('tutorials').select('id, title, category');
+    if (tut) allTutorials = tut;
+  } catch (e) {}
+}
 
-    if (sessionData && sessionData.session) {
-      const { data: userData, error: userError } = await client.auth.getUser();
-
-      if (!userError && userData && userData.user) {
-        user = userData.user;
-      } else if (userError && userError.status >= 400 && userError.status < 500) {
-        await client.auth.signOut({ scope: 'local' });
-      } else {
-        showGateError('Tidak dapat memverifikasi sesi. Periksa koneksi internet Anda lalu coba lagi.');
-        return;
-      }
-    }
-  } catch (err) {
-    showGateError('Tidak dapat memverifikasi sesi. Periksa koneksi internet Anda lalu coba lagi.');
+searchInput.addEventListener('input', () => {
+  const query = searchInput.value.trim().toLowerCase();
+  if (!query) {
+    searchResults.hidden = true;
+    searchResults.innerHTML = '';
+    btnClearSearch.hidden = true;
     return;
   }
 
-  if (!user) {
-    window.location.replace(LOGIN_URL);
+  btnClearSearch.hidden = false;
+
+  const matchedRes = allResources.filter(r => r.title.toLowerCase().includes(query) || (r.category && r.category.toLowerCase().includes(query)));
+  const matchedTut = allTutorials.filter(t => t.title.toLowerCase().includes(query) || (t.category && t.category.toLowerCase().includes(query)));
+
+  if (matchedRes.length === 0 && matchedTut.length === 0) {
+    searchResults.hidden = false;
+    searchResults.innerHTML = `<div style="padding:0.75rem 1rem;font-size:0.8125rem;color:var(--ink-soft)">Tidak ada hasil untuk "<b>${escapeHtml(query)}</b>"</div>`;
     return;
   }
 
-  const metadata = user.user_metadata || {};
-  const emailName = user.email ? user.email.split('@')[0] : 'Pengguna';
-
-  const renderName = (name) => {
-    userNameEl.textContent = name;
-    menuNameEl.textContent = name;
-    menuAvatarEl.innerHTML = '<img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile">';
-  };
-
-  renderName(String(metadata.full_name || metadata.name || emailName).trim() || emailName);
-  menuEmailEl.textContent = user.email || '';
-
-  body.classList.add('ready');
-
-  client.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') {
-      window.location.replace(LOGIN_URL);
-    }
+  let html = '';
+  matchedRes.slice(0, 3).forEach(r => {
+    html += `
+      <a href="/resources?id=${r.id}" class="search-item">
+        <div class="search-item-info">
+          <span class="search-item-title">${escapeHtml(r.title)}</span>
+          <span class="search-item-type">Resource &bull; ${escapeHtml(r.category || 'Plugin')}</span>
+        </div>
+        <span class="search-item-tag">Download</span>
+      </a>
+    `;
   });
 
-  try {
-    const { data: profile } = await client
-      .from('profiles')
-      .select('full_name')
-      .eq('user_id', user.id)
-      .maybeSingle();
+  matchedTut.slice(0, 3).forEach(t => {
+    html += `
+      <a href="/tutorial?id=${t.id}" class="search-item">
+        <div class="search-item-info">
+          <span class="search-item-title">${escapeHtml(t.title)}</span>
+          <span class="search-item-type">Tutorial &bull; ${escapeHtml(t.category || 'Video')}</span>
+        </div>
+        <span class="search-item-tag">Tonton</span>
+      </a>
+    `;
+  });
 
-    if (profile && profile.full_name && profile.full_name.trim()) {
-      renderName(profile.full_name.trim());
-    }
-  } catch (err) {
-    console.error('Profile fetch failed:', err && err.message ? err.message : 'unknown error');
+  searchResults.innerHTML = html;
+  searchResults.hidden = false;
+});
+
+btnClearSearch.addEventListener('click', () => {
+  searchInput.value = '';
+  searchResults.hidden = true;
+  btnClearSearch.hidden = true;
+  searchInput.focus();
+});
+
+document.addEventListener('click', (e) => {
+  if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+    searchResults.hidden = true;
   }
 });
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Inisialisasi Dashboard
+async function initDashboard() {
+  try {
+    // 1. Sinkronisasi Navbar Cerdas
+    const { user, isAdmin } = await initSmartNavbar('dashboard');
+
+    // 2. Muat ringkasan antar fitur
+    const overview = await getSmartHubOverview();
+
+    // Update Endorser stats
+    if (overview.availableSlots > 0) {
+      slotBadgeCount.textContent = `${overview.availableSlots} Slot Available`;
+      slotBadgeCount.style.background = '#dcfce7';
+      slotBadgeCount.style.color = '#15803d';
+
+      if (overview.upcomingSlot && overview.upcomingSlot.scheduled_date) {
+        slotNextInfo.textContent = `Upload terdekat: ${new Date(overview.upcomingSlot.scheduled_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+      }
+    } else {
+      slotBadgeCount.textContent = 'Slot Terjadwal';
+      slotNextInfo.textContent = 'Lihat jadwal lengkap upload endorser';
+    }
+
+    // Update Resources stats
+    if (overview.totalResources > 0) {
+      resBadgeCount.textContent = `${overview.totalResources} File Tersedia`;
+    }
+
+    // Update Tutorials stats
+    if (overview.totalTutorials > 0) {
+      tutBadgeCount.textContent = `${overview.totalTutorials} Video Panduan`;
+    }
+
+    // User Booking Banner jika user memiliki pesanan
+    if (user && overview.userBookings > 0) {
+      const active = overview.activeBooking;
+      if (active) {
+        userBookingTitle.textContent = `Pesanan Server "${active.server_name || 'Minecraft'}" (${(active.status || 'Aktif').toUpperCase()})`;
+        userBookingSub.textContent = 'Slot booking Anda aktif. Buka untuk memantau progres dan koordinasi via chat langsung dengan admin.';
+        const btnChat = document.getElementById('btnUserBookingChat');
+        if (btnChat && active.slot_id) {
+          btnChat.href = `/endorser?slot_id=${active.slot_id}`;
+        }
+      } else {
+        userBookingTitle.textContent = `Anda Memiliki ${overview.userBookings} Pesanan Endorser Aktif`;
+        userBookingSub.textContent = 'Klik tombol di samping untuk memantau progres produksi dan chat dengan tim rakDEV.';
+      }
+      userBookingBanner.hidden = false;
+    }
+
+    // Muat data pencarian di latar belakang
+    loadSearchCache();
+
+    // Realtime listeners untuk Dashboard
+    if (supabase) {
+      supabase
+        .channel('dashboard_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'endorser_slots' }, () => refreshDashboard())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'endorser_bookings' }, () => refreshDashboard())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => refreshDashboard())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tutorials' }, () => refreshDashboard())
+        .subscribe();
+    }
+  } catch (err) {
+    console.warn('Dashboard init notice:', err);
+  } finally {
+    document.body.classList.add('ready');
+  }
+}
+
+async function refreshDashboard() {
+  try {
+    const overview = await getSmartHubOverview();
+    if (overview.availableSlots > 0) {
+      slotBadgeCount.textContent = `${overview.availableSlots} Slot Available`;
+      slotBadgeCount.style.background = '#dcfce7';
+      slotBadgeCount.style.color = '#15803d';
+    }
+    if (overview.totalResources > 0) {
+      resBadgeCount.textContent = `${overview.totalResources} File Tersedia`;
+    }
+    if (overview.totalTutorials > 0) {
+      tutBadgeCount.textContent = `${overview.totalTutorials} Video Panduan`;
+    }
+    loadSearchCache();
+  } catch (e) {}
+}
+
+initDashboard();

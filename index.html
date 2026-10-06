@@ -8,150 +8,213 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="color-scheme" content="light">
   <title>Dashboard - rakDEV Studio</title>
-  <meta name="description" content="Website resmi rakDEV Studio: Dashboard, Endorser, Resources, Login, Register, dan Admin.">
-  <meta property="og:title" content="rakDEV Studio">
-  <meta property="og:description" content="Website resmi rakDEV Studio: Dashboard, Endorser, Resources, Login, Register, dan Admin.">
+  <meta name="description" content="Dashboard resmi rakDEV Studio: Endorser, Resources, dan Tutorial Server Minecraft.">
   <link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/index.css">
 </head>
 <body>
 
+  <!-- Loading Gate -->
   <div class="gate" id="gate" role="status" aria-live="polite">
     <div class="gate-spinner"></div>
-    <p class="gate-text" id="gateText">tunggu sebentar...</p>
+    <p class="gate-text" id="gateText">menghubungkan ke studio...</p>
     <button type="button" class="gate-retry" id="gateRetry">Muat ulang</button>
   </div>
 
   <div class="app">
+    <!-- Header -->
     <header class="site-header">
-      <div class="container header-inner">
-        <a href="index.html" class="brand" aria-label="rakDEV Studio">
-          <span class="brand-mark"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="rakDEV"></span>
+      <div class="header-inner">
+        <a href="/dashboard" class="brand" aria-label="rakDEV Studio">
+          <span class="brand-mark">
+            <img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="rakDEV Logo" referrerpolicy="no-referrer">
+          </span>
           <span class="brand-name">rak<b>DEV</b> <span>Studio</span></span>
         </a>
-        <button type="button" class="menu-btn" id="menuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="menu">
-          <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
-        </button>
+
+        <div class="header-actions">
+          <button type="button" class="menu-btn" id="menuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="menu">
+            <span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
+          </button>
+        </div>
       </div>
     </header>
 
-    <main id="top">
-      <section class="hero">
-        <div class="container">
-          <span class="eyebrow reveal">Dashboard</span>
-          <h1 class="reveal" style="--d: 0.06s">
-            Halo, <span id="userName"></span>.
-            <span class="sub">Selamat datang di rakDEV Studio.</span>
-          </h1>
-          <p class="lead reveal" style="--d: 0.12s">
-            rakDEV Studio membangun komunitas developer server Minecraft.
-            untuk pemula,sepuh dan lain lain
-          </p>
+    <!-- Main Container -->
+    <main class="main-container">
+      
+      <!-- Hero Section -->
+      <section class="hero-block">
+        <div class="hero-eyebrow">
+          <span class="live-dot"></span>
+          <span>STUDIO RESMI MINECRAFT INDONESIA</span>
         </div>
-      </section>
+        <h1 class="hero-title">Pusat Layanan & Kreativitas Server</h1>
+        <p class="hero-sub">
+          Jadwal promosi upload endorser, unduh resources plugin server berkualitas, dan panduan tutorial konfigurasi.
+        </p>
 
-      <section class="section">
-        <div class="container">
-          <h2 class="section-title reveal" style="--d: 0.16s">Yang kami kerjakan</h2>
-          <div class="services">
-            <article class="service reveal" style="--d: 0.2s">
-              <span class="service-num">01</span>
-              <h3>Setup Server</h3>
-              <p>Instalasi dan konfigurasi server Paper dan Purpur di panel hosting, dengan fondasi yang stabil sejak hari pertama.</p>
-            </article>
-            <article class="service reveal" style="--d: 0.24s">
-              <span class="service-num">02</span>
-              <h3>Plugin dan Sistem</h3>
-              <p>Penataan plugin, ekonomi, dan sistem gameplay agar sesuai dengan karakter dan tujuan server Anda.</p>
-            </article>
-            <article class="service reveal" style="--d: 0.28s">
-              <span class="service-num">03</span>
-              <h3>Konten Kustom</h3>
-              <p>Model, animasi, texture pack, dan item kustom yang memberi server tampilan yang khas.</p>
-            </article>
-            <article class="service reveal" style="--d: 0.32s">
-              <span class="service-num">04</span>
-              <h3>Web dan Tools</h3>
-              <p>Website dan alat bantu berbasis web yang terhubung dengan komunitas dan server Anda.</p>
-            </article>
+        <!-- Smart Instant Search -->
+        <div class="smart-search-wrap">
+          <div class="search-input-box">
+            <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="smartSearchInput" placeholder="Cari plugin, skrip, atau video tutorial..." autocomplete="off">
+            <button type="button" id="btnClearSearch" class="btn-clear-search" hidden>✕</button>
           </div>
+          <div class="smart-search-results" id="smartSearchResults" hidden></div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="container">
-          <h2 class="section-title reveal" style="--d: 0.36s">Jelajahi</h2>
-          <div class="explore reveal" style="--d: 0.4s">
-            <a href="/endorser" class="explore-row">
-              <span>
-                <strong>Endorser</strong>
-                <small>Buka halaman Endorser</small>
-              </span>
-              <span class="explore-arrow" aria-hidden="true">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-              </span>
-            </a>
-            <a href="resources.html" class="explore-row">
-              <span>
-                <strong>Resources</strong>
-                <small>Buka halaman Resources</small>
-              </span>
-              <span class="explore-arrow" aria-hidden="true">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-              </span>
-            </a>
-            <a href="/tutorial" class="explore-row">
-              <span>
-                <strong>Tutorial</strong>
-                <small>Panduan dan video tutorial</small>
-              </span>
-              <span class="explore-arrow" aria-hidden="true">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-              </span>
-            </a>
-            <div class="explore-row soon" aria-disabled="true">
-              <span>
-                <strong>Halaman rakDEV lainnya</strong>
-                <small>Akan tersedia di sini</small>
-              </span>
-              <span class="badge">Segera</span>
+      <!-- Active User Booking Banner (Tampil otomatis jika user sedang punya pesanan endorser) -->
+      <section class="user-active-banner" id="userBookingBanner" hidden>
+        <div class="banner-inner">
+          <div class="banner-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <div class="banner-content">
+            <div class="banner-title" id="userBookingTitle">Pesanan Endorser Anda Sedang Diproses</div>
+            <div class="banner-sub" id="userBookingSub">Status terbaru dan chat langsung dengan admin tersedia.</div>
+          </div>
+          <a href="/endorser" class="btn-banner-action" id="btnUserBookingChat">Buka Koordinasi →</a>
+        </div>
+      </section>
+
+      <!-- Smart Interconnected Feature Cards -->
+      <section class="cards-grid">
+        <!-- 1. Endorser Card -->
+        <div class="feature-card">
+          <div class="card-top">
+            <div class="card-icon endorser-color">
+              <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.8.8 3 2.6 3 5.6"/></svg>
             </div>
+            <span class="card-badge" id="slotBadgeCount">Memuat slot...</span>
+          </div>
+          <h2 class="card-title">Slot Upload Endorser</h2>
+          <p class="card-desc">Promosikan server Minecraft Anda di TikTok & YouTube rakDEV dengan jadwal transparan dan pantauan produksi realtime.</p>
+          <div class="card-meta" id="slotNextInfo">Cek ketersediaan tanggal upload</div>
+          <div class="card-actions">
+            <a href="/endorser" class="btn-link">Lihat Jadwal Slot →</a>
+          </div>
+        </div>
+
+        <!-- 2. Resources Card -->
+        <div class="feature-card">
+          <div class="card-top">
+            <div class="card-icon resources-color">
+              <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
+            </div>
+            <span class="card-badge" id="resBadgeCount">Resources</span>
+          </div>
+          <h2 class="card-title">Koleksi Resources</h2>
+          <p class="card-desc">Download plugin pilihan, konfigurasi teroptimasi, skrip custom, dan map Minecraft Java Edition siap pasang.</p>
+          <div class="card-meta">Kategori: Plugin, Skript, Config, Maps</div>
+          <div class="card-actions">
+            <a href="/resources" class="btn-link">Unduh Resources →</a>
+          </div>
+        </div>
+
+        <!-- 3. Tutorial Card -->
+        <div class="feature-card">
+          <div class="card-top">
+            <div class="card-icon tutorial-color">
+              <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <span class="card-badge" id="tutBadgeCount">Tutorial</span>
+          </div>
+          <h2 class="card-title">Panduan & Tutorial</h2>
+          <p class="card-desc">Pelajari panduan praktis pengelolaan server, konfigurasi plugin, optimasi performa, dan setup sistem permainan.</p>
+          <div class="card-meta">Platform: YouTube & TikTok Tutorial</div>
+          <div class="card-actions">
+            <a href="/tutorial" class="btn-link">Tonton Tutorial →</a>
           </div>
         </div>
       </section>
+
+      <!-- Quick Nav List -->
+      <section class="explore-section">
+        <h3 class="section-heading">Navigasi Halaman Studio</h3>
+        <div class="explore-card">
+          <div class="explore-list">
+            <a href="/endorser" class="explore-row">
+              <div class="explore-row-left">
+                <span class="row-icon endorser-color">
+                  <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/></svg>
+                </span>
+                <span>
+                  <strong>Endorser Server</strong>
+                  <small>Jadwal upload, detail slot, dan pemesanan</small>
+                </span>
+              </div>
+              <span class="explore-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </a>
+
+            <a href="/resources" class="explore-row">
+              <div class="explore-row-left">
+                <span class="row-icon resources-color">
+                  <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
+                </span>
+                <span>
+                  <strong>Resources</strong>
+                  <small>Plugin, config, dan file server Minecraft</small>
+                </span>
+              </div>
+              <span class="explore-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </a>
+
+            <a href="/tutorial" class="explore-row">
+              <div class="explore-row-left">
+                <span class="row-icon tutorial-color">
+                  <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </span>
+                <span>
+                  <strong>Tutorial</strong>
+                  <small>Video tutorial dan panduan konfigurasi step-by-step</small>
+                </span>
+              </div>
+              <span class="explore-arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </a>
+          </div>
+        </div>
+      </section>
+
     </main>
 
+    <!-- Footer -->
     <footer class="site-footer">
-      <div class="container footer-inner">
-        <span>&copy; <span id="year"></span> rakDEV Studio</span>
-        <span>Server Minecraft Java Edition</span>
+      <div class="footer-inner">
+        <span>&copy; <span id="year">2026</span> rakDEV Studio</span>
+        <span>Minecraft Java Edition Services</span>
       </div>
     </footer>
 
+    <!-- Scrim -->
     <div class="scrim" id="scrim"></div>
 
-    <aside class="menu" id="menu" aria-label="Menu utama" aria-hidden="true">
+    <!-- Drawer Navigation Menu -->
+    <aside class="menu" id="menu" aria-label="Menu navigasi" aria-hidden="true">
       <div class="menu-head">
-        <span class="menu-title">Menu</span>
+        <span class="menu-title">Menu Utama</span>
         <button type="button" class="menu-close" id="menuClose" aria-label="Tutup menu">
           <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
       </div>
 
       <div class="menu-user">
-        <div class="avatar" id="menuAvatar" aria-hidden="true"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile"></div>
+        <div class="avatar" id="menuAvatar">
+          <img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile" referrerpolicy="no-referrer">
+        </div>
         <div class="menu-user-text">
-          <div class="menu-user-name" id="menuName"></div>
-          <div class="menu-user-email" id="menuEmail"></div>
+          <div class="menu-user-name" id="menuName">Tamu</div>
+          <div class="menu-user-email" id="menuEmail">Belum login</div>
         </div>
       </div>
 
       <nav class="menu-nav">
-        <a href="index.html" class="menu-item" id="menuDashboard" aria-current="page">
+        <a href="/dashboard" class="menu-item active" aria-current="page">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg>
           <span>Dashboard</span>
         </a>
@@ -159,31 +222,26 @@
           <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.8.8 3 2.6 3 5.6"/></svg>
           <span>Endorser</span>
         </a>
-        <a href="resources.html" class="menu-item">
+        <a href="/resources" class="menu-item">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
           <span>Resources</span>
         </a>
-        <a href="/tutorial" class="menu-item" id="menuTutorial">
+        <a href="/tutorial" class="menu-item">
           <svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span>Tutorial</span>
         </a>
-
-        <div class="menu-label">Halaman lainnya</div>
-        <div class="menu-item placeholder" aria-disabled="true">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Halaman rakDEV</span>
-          <span class="badge">Segera</span>
-        </div>
       </nav>
 
       <div class="menu-foot">
         <button type="button" class="menu-item logout" id="logoutBtn">
           <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-          <span id="logoutLabel">Logout</span>
+          <span id="logoutLabel">Login</span>
         </button>
       </div>
     </aside>
   </div>
+
+  <div class="toast-container" id="toastContainer"></div>
 
   <script type="module" src="/index.js"></script>
 </body>

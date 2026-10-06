@@ -2,143 +2,58 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <script>
-    (function(){try{var s=sessionStorage.getItem('clean_url');if(s){sessionStorage.removeItem('clean_url');window.history.replaceState(null,'',s);return;}var p=window.location.pathname;if(/\.(html?|htm)$/i.test(p)||p.endsWith('/')||p===''||p.endsWith('/index')){var c=p.replace(/\.(html?|htm)$/i,'');if(c.endsWith('/index')||c===''||c==='/'){c=c.replace(/\/?index$/,'')+'/dashboard';}else{c=c.toLowerCase();}var f=(c.startsWith('/')?c:'/'+c)+window.location.search+window.location.hash;window.history.replaceState(null,'',f);}}catch(e){}})();
-  </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Portal Utama</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Login - rakDEV Studio</title>
+  <meta name="description" content="Masuk ke akun rakDEV Studio Anda.">
   <link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="login.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/login.css">
 </head>
 <body>
-
-  <div class="bg-glow bg-glow-1"></div>
-  <div class="bg-glow bg-glow-2"></div>
-
-  <div class="login-container">
-    <div class="panda-wrapper" id="pandaContainer" aria-hidden="true">
-      <div class="panda">
-        <div class="panda-ear left"></div>
-        <div class="panda-ear right"></div>
-        <div class="panda-head idle-bounce" id="pandaHead">
-          <div class="panda-eye-patch left">
-            <div class="panda-eyeball" id="eyeLeft">
-              <div class="panda-pupil"></div>
-            </div>
-          </div>
-          <div class="panda-eye-patch right">
-            <div class="panda-eyeball" id="eyeRight">
-              <div class="panda-pupil"></div>
-            </div>
-          </div>
-          <div class="panda-blush left"></div>
-          <div class="panda-blush right"></div>
-          <div class="panda-nose"></div>
-          <div class="panda-mouth"></div>
-        </div>
-        <div class="panda-paw left"></div>
-        <div class="panda-paw right"></div>
-      </div>
-    </div>
-
-    <main class="card" id="formCard">
-
-      <div class="side-widget left-widget" id="leftWidget" aria-hidden="true">
-        <div class="widget-ring"></div>
-        <svg class="widget-icon" viewBox="0 0 24 24">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-          <polyline points="22,6 12,13 2,6"></polyline>
-        </svg>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <a href="/dashboard" class="brand-link" title="Kembali ke Dashboard">
+          <img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="rakDEV Logo" class="brand-logo">
+        </a>
+        <h1 class="auth-title">Masuk ke rakDEV</h1>
+        <p class="auth-subtitle">Kelola endorser, unduh resources, dan akses fitur studio.</p>
       </div>
 
-      <div class="side-widget right-widget" id="rightWidget" aria-hidden="true">
-        <div class="widget-ring"></div>
-        <svg class="widget-icon" viewBox="0 0 24 24" id="lockIconSvg">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-      </div>
+      <div class="auth-alert" id="authAlert" hidden></div>
 
-      <div class="stage-container" aria-hidden="true">
-        <div class="stickman" id="stickman">
-          <div class="stickman-head"></div>
-          <div class="stickman-body">
-            <div class="stickman-arm left"></div>
-            <div class="stickman-arm right"></div>
-          </div>
-          <div class="stickman-leg left"></div>
-          <div class="stickman-leg right"></div>
-        </div>
-      </div>
-
-      <div class="card-header">
-        <div class="card-badge">
-          <span class="badge-dot"></span>
-          login
-        </div>
-        <h1>member Login</h1>
-        <p>Silakan masukkan email dan password Anda</p>
-      </div>
-
-      <div id="alertBox" class="alert" role="alert" aria-live="polite"></div>
-
-      <form id="loginForm" novalidate>
+      <form id="loginForm" class="auth-form" novalidate>
         <div class="form-group">
-          <label for="identity" id="labelIdentity">Email</label>
-          <div class="input-wrapper">
-            <input 
-              type="email" 
-              id="identity" 
-              class="form-control" 
-              placeholder="Email"
-              autocomplete="email"
-              inputmode="email"
-              required
-            >
-          </div>
+          <label for="loginEmail" class="form-label">Email</label>
+          <input type="email" id="loginEmail" class="form-control" placeholder="nama@email.com" autocomplete="email" required>
         </div>
 
         <div class="form-group">
-          <label for="password" id="labelPassword">Password</label>
-          <div class="input-wrapper">
-            <input 
-              type="password" 
-              id="password" 
-              class="form-control" 
-              placeholder="Password"
-              autocomplete="current-password"
-              required
-            >
-            <button 
-              type="button" 
-              id="togglePassword" 
-              class="password-toggle"
-              aria-label="Tampilkan password"
-            >
-              <svg id="eyeIcon" viewBox="0 0 24 24">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
+          <div class="label-row">
+            <label for="loginPassword" class="form-label">Password</label>
+          </div>
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" class="btn-toggle-pw" id="btnTogglePassword" aria-label="Lihat password">
+              <svg class="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
         </div>
 
-        <button type="submit" id="btnLogin" class="btn-submit">
-          <div class="btn-spinner" id="btnSpinner"></div>
-          <span id="btnText">LOGIN</span>
+        <button type="submit" class="btn btn-primary" id="btnLoginSubmit">
+          <span id="btnSubmitText">Masuk Sekarang</span>
         </button>
-
-        <div class="auth-switch">
-          Belum punya akun? <a href="register.html" class="auth-link">Register</a>
-        </div>
       </form>
-    </main>
+
+      <div class="auth-footer">
+        <span>Belum punya akun? <a href="/register.html" class="auth-link">Daftar sekarang</a></span>
+      </div>
+    </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="/login.js"></script>
 </body>
 </html>

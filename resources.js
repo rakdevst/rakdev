@@ -1,670 +1,265 @@
-(function () {
-  try {
-    const p = window.location.pathname;
-    if (p.endsWith('resources.html') || p.endsWith('/resources.html')) {
-      const cleanPath = p.replace(/\/?resources\.html$/, '') + '/resources';
-      window.history.replaceState(null, '', (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath) + window.location.search + window.location.hash);
-    }
-  } catch (e) {}
-})();
-
-const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
-const LOGIN_URL = 'login.html';
-const RESOURCE_TABLE = 'resources';
-const FILES_BUCKET = 'resource-files';
-const THUMBNAILS_BUCKET = 'resource-thumbnails';
-const LIST_COLUMNS = 'id,name,category,short_description,is_free,thumbnail_path,created_at';
-const REALTIME_DEBOUNCE_MS = 300;
-
-const isConfigured = /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\/?$/i.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 40;
-const db = window.supabase && isConfigured
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
-
-const state = {
-  user: null,
-  category: 'ALL',
-  resources: [],
-  categories: [],
-  currentResource: null,
-  loaded: false,
-  error: false,
-  downloading: false,
-  detailToken: 0
-};
-
-let realtimeChannel = null;
-let refreshTimer = null;
+import { 
+  supabase, 
+  rakDb,
+  initSmartNavbar, 
+  bindLogoutButton, 
+  showToast,
+  getRelatedTutorials
+} from '/shared/supabaseClient.js';
 
 const gate = document.getElementById('gate');
-const gateText = document.getElementById('gateText');
-const gateRetry = document.getElementById('gateRetry');
 const menuBtn = document.getElementById('menuBtn');
 const menu = document.getElementById('menu');
 const scrim = document.getElementById('scrim');
 const menuClose = document.getElementById('menuClose');
-const logoutBtn = document.getElementById('logoutBtn');
-const logoutLabel = document.getElementById('logoutLabel');
-const menuNameEl = document.getElementById('menuName');
-const menuEmailEl = document.getElementById('menuEmail');
-const menuAvatarEl = document.getElementById('menuAvatar');
-const yearEl = document.getElementById('year');
 
-let isLoggingOut = false;
+const resourcesGrid = document.getElementById('resourcesGrid');
+const emptyState = document.getElementById('emptyState');
+const emptyStateText = document.getElementById('emptyStateText');
+const searchInput = document.getElementById('resSearchInput');
+const catTabs = document.querySelectorAll('.cat-tab');
 
-yearEl.textContent = new Date().getFullYear();
+// Modal Elements
+const detailModal = document.getElementById('detailModal');
+const btnCloseModal = document.getElementById('btnCloseModal');
+const modalResTitle = document.getElementById('modalResTitle');
+const modalResBody = document.getElementById('modalResBody');
+const modalResFooter = document.getElementById('modalResFooter');
 
-const dom = {
-  viewHome: document.getElementById('view-home'),
-  viewDetail: document.getElementById('view-detail'),
-  resourceGrid: document.getElementById('resourceGrid'),
-  emptyState: document.getElementById('emptyState'),
-  emptyTitle: document.getElementById('emptyTitle'),
-  emptyDesc: document.getElementById('emptyDesc'),
-  btnRetry: document.getElementById('btnRetry'),
-  filterContainer: document.getElementById('filterContainer'),
-  btnBack: document.getElementById('btnBack'),
-  toastContainer: document.getElementById('toastContainer'),
-  detail: {
-    imgWrap: document.getElementById('detailImgWrap'),
-    cat: document.getElementById('detailCat'),
-    free: document.getElementById('detailFree'),
-    title: document.getElementById('detailTitle'),
-    desc: document.getElementById('detailDesc'),
-    info: document.getElementById('detailInfo'),
-    codeSection: document.getElementById('codeSection'),
-    code: document.getElementById('detailCode'),
-    btnDownload: document.getElementById('btnDownload'),
-    btnShare: document.getElementById('btnShare'),
-    recommendedSection: document.getElementById('recommendedSection'),
-    recommendedGrid: document.getElementById('recommendedGrid')
-  }
-};
+let allResources = [];
+let activeCat = 'all';
 
-const showGateError = (message) => {
-  gateText.textContent = message;
-  gate.classList.add('error');
-};
-
-const openMenu = () => {
+// Drawer
+function openMenu() {
   menu.classList.add('open');
   menu.setAttribute('aria-hidden', 'false');
   scrim.classList.add('show');
-  document.body.classList.add('menu-open');
-  menuBtn.setAttribute('aria-expanded', 'true');
-  menuBtn.setAttribute('aria-label', 'Tutup menu');
-  menuClose.focus();
-};
+  document.body.style.overflow = 'hidden';
+}
 
-const closeMenu = (returnFocus) => {
+function closeMenu() {
   menu.classList.remove('open');
   menu.setAttribute('aria-hidden', 'true');
   scrim.classList.remove('show');
-  document.body.classList.remove('menu-open');
-  menuBtn.setAttribute('aria-expanded', 'false');
-  menuBtn.setAttribute('aria-label', 'Buka menu');
-  if (returnFocus) menuBtn.focus();
-};
+  document.body.style.overflow = '';
+}
 
-menuBtn.addEventListener('click', () => {
-  if (menu.classList.contains('open')) closeMenu(true);
-  else openMenu();
+menuBtn.addEventListener('click', openMenu);
+menuClose.addEventListener('click', closeMenu);
+scrim.addEventListener('click', closeMenu);
+
+bindLogoutButton('logoutBtn', 'logoutLabel');
+
+// Category filter
+catTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    catTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeCat = tab.getAttribute('data-cat');
+    renderResources();
+  });
 });
 
-menuClose.addEventListener('click', () => closeMenu(true));
-scrim.addEventListener('click', () => closeMenu(true));
+searchInput.addEventListener('input', () => {
+  renderResources();
+});
 
-document.addEventListener('keydown', (e) => {
-  if (!menu.classList.contains('open')) return;
+function renderResources() {
+  const query = searchInput.value.trim().toLowerCase();
 
-  if (e.key === 'Escape') {
-    closeMenu(true);
+  let filtered = allResources;
+
+  if (activeCat !== 'all') {
+    filtered = filtered.filter(r => (r.category || '').toLowerCase() === activeCat.toLowerCase());
+  }
+
+  if (query) {
+    filtered = filtered.filter(r => 
+      (r.title && r.title.toLowerCase().includes(query)) ||
+      (r.description && r.description.toLowerCase().includes(query)) ||
+      (r.tags && r.tags.toLowerCase().includes(query)) ||
+      (r.category && r.category.toLowerCase().includes(query))
+    );
+  }
+
+  if (filtered.length === 0) {
+    resourcesGrid.innerHTML = '';
+    emptyStateText.textContent = query 
+      ? `Tidak ada file yang cocok dengan pencarian "${escapeHtml(query)}".`
+      : 'Belum ada file resource yang tersedia pada kategori ini.';
+    emptyState.hidden = false;
     return;
   }
 
-  if (e.key === 'Tab') {
-    const focusable = Array.from(menu.querySelectorAll('a[href], button:not([disabled])'));
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+  emptyState.hidden = true;
+  resourcesGrid.innerHTML = filtered.map(r => {
+    const thumb = r.thumbnail_url || 'https://images.unsplash.com/photo-1627856013091-fed6e4e30025?w=600&auto=format&fit=crop&q=80';
+    return `
+      <div class="resource-card" data-res-id="${r.id}">
+        <div class="card-thumb-wrap">
+          <img src="${escapeHtml(thumb)}" alt="${escapeHtml(r.title)}" class="card-thumb" loading="lazy">
+          <span class="card-badge-top">${escapeHtml(r.category || 'Plugin')}</span>
+        </div>
+        <div class="card-body">
+          <h2 class="card-res-title">${escapeHtml(r.title)}</h2>
+          <p class="card-res-desc">${escapeHtml(r.description || 'Resource server Minecraft Java Edition pilihan rakDEV Studio.')}</p>
+          <div class="card-footer">
+            <span class="mono">v${escapeHtml(r.version || '1.0.0')} &bull; ${r.downloads_count || 0} unduhan</span>
+            <span class="btn-card-action">Detail & Unduh &rarr;</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-});
+  document.querySelectorAll('.resource-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.getAttribute('data-res-id');
+      const item = allResources.find(x => x.id === id);
+      if (item) openDetailModal(item);
+    });
+  });
+}
 
-menu.querySelectorAll('a.menu-item').forEach((link) => {
-  link.addEventListener('click', () => closeMenu(false));
-});
+async function openDetailModal(r) {
+  modalResTitle.textContent = r.title;
 
-logoutBtn.addEventListener('click', async () => {
-  if (isLoggingOut || !db) return;
+  modalResBody.innerHTML = `
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--ink-faint);text-transform:uppercase">Kategori</div>
+      <div style="font-weight:700;color:var(--ink);font-size:0.95rem">${escapeHtml(r.category || 'Plugin')}</div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--ink-faint);text-transform:uppercase">Deskripsi</div>
+      <div style="margin-top:4px">${escapeHtml(r.description || 'Tidak ada deskripsi.')}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;background:var(--surface-alt);padding:0.75rem;border-radius:8px;margin-bottom:1rem">
+      <div>
+        <span style="font-size:0.7rem;color:var(--ink-faint);display:block">Versi</span>
+        <span class="mono" style="font-weight:700">v${escapeHtml(r.version || '1.0.0')}</span>
+      </div>
+      <div>
+        <span style="font-size:0.7rem;color:var(--ink-faint);display:block">Ukuran File</span>
+        <span class="mono" style="font-weight:700">${escapeHtml(r.file_size || 'N/A')}</span>
+      </div>
+    </div>
+    ${r.dependencies ? `<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:0.75rem"><b>Dependencies:</b> ${escapeHtml(r.dependencies)}</div>` : ''}
+    ${r.tags ? `<div style="font-size:0.75rem;color:var(--ink-soft)"><b>Tags:</b> ${escapeHtml(r.tags)}</div>` : ''}
+    
+    <!-- Smart Related Tutorial Container -->
+    <div id="modalRelatedTutWrap" style="margin-top:1rem"></div>
+  `;
 
-  isLoggingOut = true;
-  logoutBtn.disabled = true;
-  logoutLabel.textContent = 'Keluar...';
+  modalResFooter.innerHTML = `
+    ${r.download_url ? `
+      <a href="${escapeHtml(r.download_url)}" target="_blank" rel="noopener noreferrer" class="btn-primary" id="btnDownloadFile">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Unduh File Sekarang
+      </a>
+    ` : '<span style="font-size:0.8rem;color:var(--ink-soft)">Tautan unduhan belum ditambahkan admin.</span>'}
+  `;
 
-  let result;
-  try {
-    result = await db.auth.signOut();
-  } catch (err) {
-    result = { error: err };
-  }
-
-  if (result && result.error) {
+  document.getElementById('btnDownloadFile')?.addEventListener('click', async () => {
     try {
-      await db.auth.signOut({ scope: 'local' });
-    } catch (err) {
-      console.error('Logout failed:', err && err.message ? err.message : 'unknown error');
-    }
-  }
+      await rakDb.trackResourceDownload(r.id);
+    } catch (e) {}
+    showToast('Memulai unduhan file...');
+  });
 
-  window.location.replace(LOGIN_URL);
+  detailModal.classList.add('open');
+
+  // Cari tutorial terkait secara cerdas
+  try {
+    const tuts = await getRelatedTutorials(r.category, r.title?.split(' ')[0], 1);
+    const tutWrap = document.getElementById('modalRelatedTutWrap');
+    if (tutWrap && tuts && tuts.length > 0) {
+      const tut = tuts[0];
+      tutWrap.innerHTML = `
+        <div style="background:#fef2f2;border:1px solid #fecaca;padding:0.75rem 1rem;border-radius:8px">
+          <div style="font-size:0.7rem;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:4px">🎬 Panduan Video Terkait</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <span style="font-size:0.8125rem;font-weight:600;color:#1e293b">${escapeHtml(tut.title)}</span>
+            <a href="/tutorial?id=${tut.id}" class="btn" style="background:#dc2626;color:#fff;text-decoration:none;font-size:0.75rem;font-weight:600;padding:5px 12px;border-radius:6px;white-space:nowrap">Tonton Panduan &rarr;</a>
+          </div>
+        </div>
+      `;
+    }
+  } catch (e) {}
+}
+
+btnCloseModal.addEventListener('click', () => {
+  detailModal.classList.remove('open');
 });
 
-gateRetry.addEventListener('click', () => window.location.reload());
+detailModal.addEventListener('click', (e) => {
+  if (e.target === detailModal) detailModal.classList.remove('open');
+});
 
-function setupEventListeners() {
-  window.addEventListener('hashchange', handleRouting);
-  window.addEventListener('pagehide', unsubscribeRealtime);
-
-  dom.filterContainer.addEventListener('click', (e) => {
-    const btn = e.target.closest('.filter-btn');
-    if (!btn) return;
-    state.category = btn.getAttribute('data-filter');
-    renderFilters();
-    renderGrid();
-  });
-
-  dom.btnBack.addEventListener('click', () => {
-    window.location.hash = '';
-  });
-
-  dom.btnRetry.addEventListener('click', async () => {
-    state.loaded = false;
-    state.error = false;
-    renderGrid();
-    await loadResources();
-    handleRouting();
-  });
-
-  dom.detail.btnDownload.addEventListener('click', () => {
-    if (state.currentResource) downloadResource(state.currentResource);
-  });
-
-  dom.detail.btnShare.addEventListener('click', () => {
-    if (state.currentResource) shareResource(state.currentResource.id);
-  });
-}
-
-function toList(value) {
-  if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
-  if (typeof value === 'string') return value.split(',').map(v => v.trim()).filter(Boolean);
-  return [];
-}
-
-function thumbnailUrl(path) {
-  if (!path || !db) return '';
-  const { data } = db.storage.from(THUMBNAILS_BUCKET).getPublicUrl(path);
-  return data ? data.publicUrl : '';
-}
-
-function buildMedia(path, name, emptyText) {
-  const url = thumbnailUrl(path);
-  const showEmpty = () => {
-    const span = document.createElement('span');
-    span.className = 'card-empty-img';
-    span.textContent = emptyText;
-    return span;
-  };
-  if (!url) return showEmpty();
-  const img = document.createElement('img');
-  img.className = 'card-img';
-  img.alt = name;
-  img.loading = 'lazy';
-  img.addEventListener('error', () => {
-    img.replaceWith(showEmpty());
-  });
-  img.src = url;
-  return img;
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 async function loadResources() {
-  if (!db) return false;
-  const { data, error } = await db
-    .from(RESOURCE_TABLE)
-    .select(LIST_COLUMNS)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    if (!state.loaded) {
-      state.error = true;
-      renderHome();
-    }
-    return false;
-  }
-
-  state.resources = data || [];
-  state.loaded = true;
-  state.error = false;
-  syncCategories();
-  renderHome();
-  return true;
-}
-
-function syncCategories() {
-  const set = new Set();
-  state.resources.forEach(r => {
-    if (r.category) set.add(r.category);
-  });
-  state.categories = Array.from(set).sort((a, b) => a.localeCompare(b));
-  if (state.category !== 'ALL' && !set.has(state.category)) state.category = 'ALL';
-}
-
-function renderHome() {
-  renderFilters();
-  renderGrid();
-}
-
-function renderFilters() {
-  dom.filterContainer.innerHTML = '';
-  const make = (label, value) => {
-    const btn = document.createElement('button');
-    btn.className = 'filter-btn' + (state.category === value ? ' active' : '');
-    btn.setAttribute('data-filter', value);
-    btn.textContent = label;
-    dom.filterContainer.appendChild(btn);
-  };
-  make('All', 'ALL');
-  state.categories.forEach(c => make(c, c));
-}
-
-function showEmpty(title, desc, retry) {
-  dom.resourceGrid.style.display = 'none';
-  dom.emptyState.style.display = 'block';
-  dom.emptyTitle.textContent = title;
-  dom.emptyDesc.textContent = desc;
-  dom.btnRetry.style.display = retry ? 'inline-flex' : 'none';
-}
-
-function renderGrid() {
-  dom.resourceGrid.innerHTML = '';
-
-  if (state.error) {
-    showEmpty('Gagal memuat resource', 'Terjadi kendala saat mengambil data. Silakan coba lagi.', true);
+  if (!supabase) {
+    emptyStateText.textContent = 'Konfigurasi database belum tersedia.';
+    emptyState.hidden = false;
     return;
   }
-
-  if (!state.loaded) {
-    showEmpty('Memuat resource', 'Mohon tunggu sebentar.', false);
-    return;
-  }
-
-  const filtered = state.resources.filter(r => state.category === 'ALL' || r.category === state.category);
-
-  if (filtered.length === 0) {
-    showEmpty('Belum ada resource', 'Belum ada konten yang tersedia pada kategori ini.', false);
-    return;
-  }
-
-  dom.resourceGrid.style.display = 'grid';
-  dom.emptyState.style.display = 'none';
-  filtered.forEach(r => dom.resourceGrid.appendChild(createCard(r)));
-}
-
-function createCard(data) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.onclick = () => {
-    window.location.hash = '#resource/' + encodeURIComponent(data.id);
-  };
-
-  const imgWrap = document.createElement('div');
-  imgWrap.className = 'card-img-wrap';
-  imgWrap.appendChild(buildMedia(data.thumbnail_path, data.name || '', 'No preview'));
-
-  const body = document.createElement('div');
-  body.className = 'card-body';
-
-  const meta = document.createElement('div');
-  meta.className = 'card-meta';
-
-  const cat = document.createElement('span');
-  cat.className = 'badge-cat';
-  cat.textContent = data.category || '';
-  meta.appendChild(cat);
-
-  if (data.is_free) {
-    const free = document.createElement('span');
-    free.className = 'badge-free';
-    free.textContent = 'FREE';
-    meta.appendChild(free);
-  }
-
-  const title = document.createElement('h3');
-  title.className = 'card-title';
-  title.textContent = data.name || '';
-
-  const desc = document.createElement('p');
-  desc.className = 'card-desc';
-  desc.textContent = data.short_description || '';
-
-  body.appendChild(meta);
-  body.appendChild(title);
-  body.appendChild(desc);
-
-  card.appendChild(imgWrap);
-  card.appendChild(body);
-
-  return card;
-}
-
-function handleRouting() {
-  if (!state.loaded && !state.error) return;
-  const hash = window.location.hash;
-  if (hash.startsWith('#resource/')) {
-    const id = decodeURIComponent(hash.replace('#resource/', ''));
-    openDetailView(id);
-  } else {
-    openHomeView();
-  }
-}
-
-function openHomeView() {
-  state.detailToken++;
-  state.currentResource = null;
-  dom.viewDetail.classList.remove('active');
-  dom.viewHome.classList.add('active');
-  window.scrollTo(0, 0);
-  renderGrid();
-}
-
-async function fetchResource(id) {
-  if (!db) return { data: null, error: true, missing: false };
-  const { data, error } = await db
-    .from(RESOURCE_TABLE)
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-  return { data, error, missing: !error && !data };
-}
-
-async function fetchRecommended(resource) {
-  if (!db) return [];
-  const { data, error } = await db
-    .from(RESOURCE_TABLE)
-    .select(LIST_COLUMNS)
-    .eq('category', resource.category)
-    .neq('id', resource.id)
-    .order('created_at', { ascending: false })
-    .limit(3);
-  return error ? [] : (data || []);
-}
-
-async function openDetailView(id) {
-  const token = ++state.detailToken;
-  const result = await fetchResource(id);
-  if (token !== state.detailToken) return;
-
-  if (result.error || result.missing) {
-    showToast(result.missing ? 'Resource tidak ditemukan' : 'Gagal memuat resource');
-    window.location.hash = '';
-    return;
-  }
-
-  state.currentResource = result.data;
-  dom.viewHome.classList.remove('active');
-  dom.viewDetail.classList.add('active');
-  window.scrollTo(0, 0);
-
-  populateDetail(result.data);
-  await renderRecommended(result.data, token);
-}
-
-function populateDetail(data) {
-  dom.detail.imgWrap.innerHTML = '';
-  dom.detail.imgWrap.appendChild(buildMedia(data.thumbnail_path, data.name || '', 'No image available'));
-
-  dom.detail.cat.textContent = data.category || '';
-  dom.detail.free.style.display = data.is_free ? 'inline-block' : 'none';
-  dom.detail.title.textContent = data.name || '';
-  dom.detail.desc.textContent = data.description || '';
-
-  if (data.code_preview) {
-    dom.detail.code.textContent = data.code_preview;
-    dom.detail.codeSection.style.display = 'block';
-  } else {
-    dom.detail.code.textContent = '';
-    dom.detail.codeSection.style.display = 'none';
-  }
-
-  dom.detail.info.innerHTML = '';
-
-  const addInfo = (label, value) => {
-    const text = Array.isArray(value) ? value.join(', ') : value;
-    if (!text) return;
-    const block = document.createElement('div');
-    block.className = 'info-block';
-    const l = document.createElement('div');
-    l.className = 'info-label';
-    l.textContent = label;
-    const v = document.createElement('div');
-    v.className = 'info-value';
-    v.textContent = text;
-    block.appendChild(l);
-    block.appendChild(v);
-    dom.detail.info.appendChild(block);
-  };
-
-  addInfo('Versi', data.version);
-  addInfo('File', data.file_name);
-  addInfo('Dependencies', toList(data.dependencies));
-  addInfo('Tags', toList(data.tags));
-
-  dom.detail.info.style.display = dom.detail.info.children.length ? 'flex' : 'none';
-}
-
-async function renderRecommended(currentResource, token) {
-  const recs = await fetchRecommended(currentResource);
-  if (token !== state.detailToken) return;
-
-  dom.detail.recommendedGrid.innerHTML = '';
-
-  if (recs.length === 0) {
-    dom.detail.recommendedSection.style.display = 'none';
-    return;
-  }
-
-  dom.detail.recommendedSection.style.display = 'block';
-  recs.forEach(r => dom.detail.recommendedGrid.appendChild(createCard(r)));
-}
-
-async function downloadResource(data) {
-  if (!data.file_path) {
-    showToast('File resource belum tersedia');
-    return;
-  }
-  if (state.downloading || !db) return;
-
-  state.downloading = true;
-  dom.detail.btnDownload.disabled = true;
-
-  const { data: signed, error } = await db.storage
-    .from(FILES_BUCKET)
-    .createSignedUrl(data.file_path, 60, { download: data.file_name || true });
-
-  state.downloading = false;
-  dom.detail.btnDownload.disabled = false;
-
-  if (error || !signed || !signed.signedUrl) {
-    showToast('Gagal mengunduh file');
-    return;
-  }
-
-  const a = document.createElement('a');
-  a.href = signed.signedUrl;
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  showToast('Download dimulai');
-}
-
-function shareResource(id) {
-  const url = window.location.origin + window.location.pathname + '#resource/' + encodeURIComponent(id);
-  if (navigator.share) {
-    navigator.share({
-      title: 'rakDEV Resources',
-      url: url
-    }).catch(() => {
-      copyToClipboard(url);
-    });
-  } else {
-    copyToClipboard(url);
-  }
-}
-
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showToast('Link berhasil disalin');
-  }).catch(() => {
-    showToast('Gagal menyalin link');
-  });
-}
-
-function subscribeRealtime() {
-  if (!db) return;
-  unsubscribeRealtime();
-  realtimeChannel = db
-    .channel('resources-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: RESOURCE_TABLE }, onResourceChange)
-    .subscribe();
-}
-
-function unsubscribeRealtime() {
-  if (realtimeChannel && db) {
-    db.removeChannel(realtimeChannel);
-    realtimeChannel = null;
-  }
-}
-
-function onResourceChange() {
-  clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(refreshAll, REALTIME_DEBOUNCE_MS);
-}
-
-async function refreshAll() {
-  await loadResources();
-  const current = state.currentResource;
-  if (!current) return;
-
-  const token = state.detailToken;
-  const result = await fetchResource(current.id);
-  if (token !== state.detailToken || !state.currentResource) return;
-
-  if (result.missing) {
-    showToast('Resource ini sudah tidak tersedia');
-    window.location.hash = '';
-    return;
-  }
-  if (result.error) return;
-
-  state.currentResource = result.data;
-  populateDetail(result.data);
-  await renderRecommended(result.data, token);
-}
-
-function showToast(message) {
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = message;
-  dom.toastContainer.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add('out');
-    setTimeout(() => {
-      toast.remove();
-    }, 250);
-  }, 2500);
-}
-
-async function init() {
-  setupEventListeners();
-
-  if (!db) {
-    showGateError('Konfigurasi Supabase belum lengkap. Isi SUPABASE_URL dan SUPABASE_ANON_KEY dengan benar.');
-    return;
-  }
-
-  let user = null;
 
   try {
-    const { data: sessionData } = await db.auth.getSession();
+    const { data, error } = await supabase
+      .from('resources')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    if (sessionData && sessionData.session) {
-      const { data: userData, error: userError } = await db.auth.getUser();
-
-      if (!userError && userData && userData.user) {
-        user = userData.user;
-      } else if (userError && userError.status >= 400 && userError.status < 500) {
-        await db.auth.signOut({ scope: 'local' });
-      } else {
-        showGateError('Tidak dapat memverifikasi sesi. Periksa koneksi internet Anda lalu coba lagi.');
-        return;
-      }
+    if (error) {
+      console.warn('Resources fetch notice:', error);
+      allResources = [];
+    } else {
+      allResources = data || [];
     }
+
+    renderResources();
   } catch (err) {
-    showGateError('Tidak dapat memverifikasi sesi. Periksa koneksi internet Anda lalu coba lagi.');
-    return;
+    emptyStateText.textContent = 'Gagal memuat resources. Pastikan tabel telah dibuat di Supabase.';
+    emptyState.hidden = false;
   }
-
-  if (!user) {
-    window.location.replace(LOGIN_URL);
-    return;
-  }
-
-  state.user = user;
-
-  const metadata = user.user_metadata || {};
-  const emailName = user.email ? user.email.split('@')[0] : 'Pengguna';
-
-  const renderName = (name) => {
-    menuNameEl.textContent = name;
-    menuAvatarEl.innerHTML = '<img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile">';
-  };
-
-  renderName(String(metadata.full_name || metadata.name || emailName).trim() || emailName);
-  menuEmailEl.textContent = user.email || '';
-
-  try {
-    const { data: profile } = await db
-      .from('profiles')
-      .select('full_name')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (profile && profile.full_name && profile.full_name.trim()) {
-      renderName(profile.full_name.trim());
-    }
-  } catch (err) {
-    console.error('Profile fetch failed:', err && err.message ? err.message : 'unknown error');
-  }
-
-  db.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') window.location.replace(LOGIN_URL);
-  });
-
-  renderHome();
-  await loadResources();
-  document.body.classList.add('ready');
-  subscribeRealtime();
-  handleRouting();
 }
 
-init();
+async function boot() {
+  try {
+    await initSmartNavbar('resources');
+    await loadResources();
+
+    // Cek query parameters untuk direct deep link
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+    const qParam = params.get('q');
+
+    if (qParam) {
+      searchInput.value = qParam;
+      renderResources();
+    }
+
+    if (idParam && allResources.length > 0) {
+      const target = allResources.find(x => x.id === idParam);
+      if (target) openDetailModal(target);
+    }
+
+    // Realtime listener untuk tabel resources
+    if (supabase) {
+      supabase
+        .channel('realtime_resources')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => {
+          loadResources();
+        })
+        .subscribe();
+    }
+  } catch (e) {
+    console.warn('Boot notice:', e);
+  } finally {
+    document.body.classList.add('ready');
+  }
+}
+
+boot();

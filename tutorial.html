@@ -1,32 +1,30 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<script>
-  (function(){try{var s=sessionStorage.getItem('clean_url');if(s){sessionStorage.removeItem('clean_url');window.history.replaceState(null,'',s);return;}var p=window.location.pathname;if(/tutorial/i.test(p)){window.history.replaceState(null,'','/tutorial'+window.location.search+window.location.hash);return;}if(/\.(html?|htm)$/i.test(p)||p.endsWith('/')||p===''||p.endsWith('/index')){var c=p.replace(/\.(html?|htm)$/i,'');if(c.endsWith('/index')||c===''||c==='/'){c=c.replace(/\/?index$/,'')+'/dashboard';}else{c=c.toLowerCase();}var f=(c.startsWith('/')?c:'/'+c)+window.location.search+window.location.hash;window.history.replaceState(null,'',f);}}catch(e){}})();
-</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="color-scheme" content="light">
-<title>Tutorial - rakDEV Studio</title>
-<meta name="description" content="Kumpulan panduan dan video tutorial pengembangan server Minecraft Java Edition di rakDEV Studio.">
-<link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/tutorial.css">
+  <meta charset="UTF-8">
+  <script>
+    (function(){try{var s=sessionStorage.getItem('clean_url');if(s){sessionStorage.removeItem('clean_url');window.history.replaceState(null,'',s);return;}var p=window.location.pathname;if(/tutorial/i.test(p)){window.history.replaceState(null,'','/tutorial'+window.location.search+window.location.hash);return;}if(/\.(html?|htm)$/i.test(p)||p.endsWith('/')||p===''||p.endsWith('/index')){var c=p.replace(/\.(html?|htm)$/i,'');if(c.endsWith('/index')||c===''||c==='/'){c=c.replace(/\/?index$/,'')+'/dashboard';}else{c=c.toLowerCase();}var f=(c.startsWith('/')?c:'/'+c)+window.location.search+window.location.hash;window.history.replaceState(null,'',f);}}catch(e){}})();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>Tutorial - rakDEV Studio</title>
+  <meta name="description" content="Koleksi video tutorial setup dan konfigurasi server Minecraft Java Edition dari rakDEV Studio.">
+  <link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/tutorial.css">
 </head>
 <body>
 
-  <!-- Loading Gate -->
   <div class="gate" id="gate" role="status" aria-live="polite">
     <div class="gate-spinner"></div>
-    <p class="gate-text" id="gateText">tunggu sebentar...</p>
+    <p class="gate-text" id="gateText">memuat tutorial...</p>
     <button type="button" class="gate-retry" id="gateRetry">Muat ulang</button>
   </div>
 
   <div class="app">
-    <!-- Header -->
     <header class="site-header">
       <div class="header-inner">
         <a href="/dashboard" class="brand" aria-label="rakDEV Studio">
@@ -41,80 +39,92 @@
       </div>
     </header>
 
-    <!-- Main Container -->
     <main class="main-container">
-      
-      <!-- Tutorial Header Section -->
-      <section class="tutorial-header">
-        <div class="header-content">
-          <span class="eyebrow">PANDUAN & VIDEO</span>
-          <h1 class="page-title">Tutorial</h1>
-          <p class="page-desc">Pelajari langkah setup server, instalasi plugin, optimasi gameplay, dan pengelolaan server Minecraft dari rakDEV.</p>
-        </div>
+      <section class="page-hero">
+        <span class="page-eyebrow">PANDUAN VIDEO RESMI</span>
+        <h1 class="page-title">Tutorial Server Minecraft</h1>
+        <p class="page-sub">Panduan langkah-demi-langkah setup plugin, konfigurasi sistem, dan optimasi server Minecraft.</p>
 
-        <!-- Search Bar -->
-        <div class="search-wrap">
-          <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="search" id="searchInput" class="search-input" placeholder="Cari judul, topik, atau platform..." autocomplete="off">
-          <button type="button" id="searchClear" class="search-clear" aria-label="Hapus pencarian" hidden>✕</button>
-        </div>
-
-        <!-- Filter Categories & Stats Bar -->
-        <div class="filter-bar">
-          <div class="filter-pills" id="categoryPills" role="tablist" aria-label="Filter kategori tutorial">
-            <button type="button" class="pill active" data-category="all" role="tab" aria-selected="true">
-              Semua <span class="pill-count mono" id="countAll">0</span>
-            </button>
+        <!-- Controls -->
+        <div class="filter-controls">
+          <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="tutSearchInput" placeholder="Cari judul tutorial, panduan plugin..." autocomplete="off">
           </div>
-          <div class="results-stat" id="resultsStat">Memuat data...</div>
+
+          <div class="category-tabs" id="catTabs">
+            <button type="button" class="cat-tab active" data-cat="all">Semua</button>
+            <button type="button" class="cat-tab" data-cat="Setup">Setup</button>
+            <button type="button" class="cat-tab" data-cat="Optimasi">Optimasi</button>
+            <button type="button" class="cat-tab" data-cat="Plugin">Plugin</button>
+            <button type="button" class="cat-tab" data-cat="Skript">Skript</button>
+            <button type="button" class="cat-tab" data-cat="General">General</button>
+          </div>
         </div>
       </section>
 
-      <!-- Tutorial Grid: WAJIB SELALU 2 CARD / BARIS -->
-      <section class="tutorial-section">
-        <div class="tutorial-grid" id="tutorialGrid"></div>
-
-        <!-- Empty State -->
+      <!-- Tutorials Grid -->
+      <section class="tutorials-section">
+        <div class="tutorials-grid" id="tutorialsGrid"></div>
         <div class="empty-state" id="emptyState" hidden>
-          <div class="empty-icon">
-            <svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          </div>
-          <h2 class="empty-title" id="emptyTitle">Belum Ada Tutorial</h2>
-          <p class="empty-desc" id="emptyDesc">Tutorial video akan segera ditambahkan oleh tim rakDEV.</p>
-        </div>
-
-        <!-- Error State -->
-        <div class="error-state" id="errorState" hidden>
-          <div class="error-icon">⚠️</div>
-          <h2 class="error-title">Gagal Memuat Tutorial</h2>
-          <p class="error-desc" id="errorDesc">Periksa koneksi internet Anda atau coba muat ulang.</p>
-          <button type="button" class="btn btn-retry" id="btnRetry">Coba Lagi</button>
+          <p id="emptyStateText">Belum ada video tutorial yang ditambahkan saat ini.</p>
         </div>
       </section>
 
+      <!-- Smart Cross-Feature Recommendation -->
+      <section class="cross-feature-card" style="margin:2.5rem 0 1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:0.75rem">
+          <span style="font-size:1.25rem">🎯</span>
+          <h3 style="font-size:1.05rem;font-weight:700;color:var(--ink);margin:0">Server Siap Rilis Setelah Mengikuti Tutorial?</h3>
+        </div>
+        <p style="font-size:0.875rem;color:var(--ink-soft);margin-bottom:1.25rem;line-height:1.6">
+          Wujudkan server impian Anda dan datangkan pemain baru lewat promosi terarah dari kreator konten rakDEV Studio di YouTube dan TikTok.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <a href="/endorser" class="btn" style="background:#0f172a;color:#fff;text-decoration:none;font-size:0.8125rem;font-weight:600;padding:8px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.8.8 3 2.6 3 5.6"/></svg>
+            Pesan Slot Promosi Endorser &rarr;
+          </a>
+          <a href="/resources" class="btn" style="background:#0284c7;color:#fff;text-decoration:none;font-size:0.8125rem;font-weight:600;padding:8px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
+            Koleksi Plugin & Resources &rarr;
+          </a>
+        </div>
+      </section>
     </main>
 
-    <!-- Footer -->
+    <!-- Video Modal -->
+    <div class="modal-backdrop" id="videoModal">
+      <div class="modal-box modal-video">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalVideoTitle">Tonton Tutorial</h2>
+          <button type="button" class="modal-close" id="btnCloseVideoModal">✕</button>
+        </div>
+        <div class="video-player-frame" id="videoPlayerFrame"></div>
+        <div class="modal-body" id="modalVideoDesc"></div>
+        <div class="modal-footer" id="modalVideoFooter"></div>
+      </div>
+    </div>
+
     <footer class="site-footer">
       <div class="footer-inner">
-        <span>&copy; <span id="year"></span> rakDEV Studio</span>
-        <span>Server Minecraft Java Edition</span>
+        <span>&copy; <span id="year">2026</span> rakDEV Studio</span>
+        <span>Minecraft Java Edition Services</span>
       </div>
     </footer>
 
-    <!-- Off-canvas Menu Backdrop & Sidebar -->
     <div class="scrim" id="scrim"></div>
 
     <aside class="menu" id="menu" aria-label="Menu utama" aria-hidden="true">
       <div class="menu-head">
-        <span class="menu-title">Menu</span>
+        <span class="menu-title">Menu Utama</span>
         <button type="button" class="menu-close" id="menuClose" aria-label="Tutup menu">
           <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
       </div>
 
       <div class="menu-user">
-        <div class="avatar" id="menuAvatar" aria-hidden="true"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile" referrerpolicy="no-referrer"></div>
+        <div class="avatar" id="menuAvatar"><img src="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png" alt="Profile" referrerpolicy="no-referrer"></div>
         <div class="menu-user-text">
           <div class="menu-user-name" id="menuName">Pengguna</div>
           <div class="menu-user-email" id="menuEmail"></div>
@@ -134,17 +144,10 @@
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>
           <span>Resources</span>
         </a>
-        <a href="/tutorial" class="menu-item" id="menuTutorial" aria-current="page">
+        <a href="/tutorial" class="menu-item active" id="menuTutorial" aria-current="page">
           <svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span>Tutorial</span>
         </a>
-
-        <div class="menu-label">Halaman lainnya</div>
-        <div class="menu-item placeholder" aria-disabled="true">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Halaman rakDEV</span>
-          <span class="badge">Segera</span>
-        </div>
       </nav>
 
       <div class="menu-foot">

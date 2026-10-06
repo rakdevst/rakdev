@@ -1,894 +1,1108 @@
-(function () {
-  try {
-    const p = window.location.pathname;
-    if (p.endsWith('admin.html') || p.endsWith('/admin.html')) {
-      const cleanPath = p.replace(/\/?admin\.html$/, '') + '/admin';
-      window.history.replaceState(null, '', (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath) + window.location.search + window.location.hash);
-    }
-  } catch (e) {}
-})();
+import { 
+  supabase, 
+  ADMIN_EMAIL, 
+  isCurrentUserAdmin, 
+  getCurrentUser, 
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  uploadFileToStorage
+} from '/shared/supabaseClient.js';
 
-const SUPABASE_URL = 'https://ymnshvqbucjelhzqxpsz.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_hrrKVBWFgVQNDQxy1ei-IA_WTRRLbuW';
-const T = { slots: 'endorser_slots', bookings: 'endorser_bookings', conv: 'conversations', msgs: 'messages', res: 'resources', tut: 'tutorials' };
-const LOGO_BUCKET = 'endorser-logos';
-const FILES_BUCKET = 'resource-files';
-const THUMB_BUCKET = 'resource-thumbnails';
-const TUTORIAL_THUMB_BUCKET = 'tutorial-thumbnails';
-const STATUSES = ['available', 'pending', 'approved', 'rejected', 'cancelled', 'in_production', 'completed'];
-const BOOKING_STATUSES = STATUSES.filter(s => s !== 'available');
-const LABEL = { available: 'TERSEDIA', pending: 'MENUNGGU', approved: 'DISETUJUI', rejected: 'DITOLAK', cancelled: 'DIBATALKAN', in_production: 'DIKERJAKAN', completed: 'SELESAI' };
-const PHASES = ['Waiting Approval', 'Planning', 'Recording', 'Editing', 'Review', 'Revision', 'Finalization', 'Published'];
-const IMG_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-
-const client = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const $ = (id) => document.getElementById(id);
-const S = { user: null, name: '', view: 'dashboard', slots: [], bookings: [], resources: [], tutorials: [], filter: { q: '', status: '', date: '' }, chat: null, tagsAsText: false, rechecking: false };
 
-const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const badge = (s) => `<span class="badge badge-${STATUSES.includes(s) ? s : 'cancelled'}">${esc(LABEL[s] || String(s || '-').toUpperCase())}</span>`;
-const fmtDate = (d) => d ? new Date(d + (String(d).length === 10 ? 'T00:00:00' : '')).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
-const fmtTime = (d) => new Date(d).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const S = {
+  user: null,
+  view: 'dashboard',
+  slots: [],
+  bookings: [],
+  resources: [],
+  tutorials: [],
+  dbHealth: { ready: false, tables: {} }
+};
 
-function toast(msg, err) {
-  const el = document.createElement('div');
-  el.className = 'toast' + (err ? ' err' : '');
-  el.textContent = msg;
-  $('toasts').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
-}
-function errText(e) {
-  const m = e && e.message ? String(e.message) : 'Terjadi kesalahan';
-  if (/row-level security|permission denied/i.test(m)) return 'Akses ditolak oleh kebijakan database.';
-  return m;
-}
-function publicUrl(bucket, path) {
-  if (!path) return '';
-  if (/^https?:\/\//i.test(path)) return path;
-  return client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-}
-function validateImage(file) {
-  if (!file) return null;
-  if (!IMG_TYPES.includes(file.type)) return 'Format gambar harus PNG, JPG, WEBP, atau GIF.';
-  if (file.size > 2 * 1024 * 1024) return 'Ukuran gambar maksimal 2 MB.';
-  return null;
-}
-function safeName(n) { return String(n).replace(/[^a-zA-Z0-9._-]/g, '_'); }
-
-const pandaEl = $('panda'), formCard = $('formCard'), alertBox = $('alertBox');
-const idIn = $('identity'), pwIn = $('password'), btnLogin = $('btnLogin'), btnText = $('btnText');
-let submitting = false;
-function showAlert(m, t) { alertBox.textContent = m; alertBox.className = 'alert alert-' + t + ' show'; }
-function panda(cls, on) { pandaEl.classList.toggle(cls, on); }
-pwIn.addEventListener('focus', () => panda('covering', pwIn.type === 'password'));
-pwIn.addEventListener('blur', () => panda('covering', false));
-$('togglePassword').addEventListener('click', () => {
-  const hidden = pwIn.type === 'password';
-  pwIn.type = hidden ? 'text' : 'password';
-  $('togglePassword').setAttribute('aria-label', hidden ? 'Sembunyikan password' : 'Tampilkan password');
-  $('eyeIcon').innerHTML = hidden
-    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
-    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-  pwIn.focus();
-});
-
-function authError(e) {
-  const m = e && e.message ? String(e.message) : '';
-  if (e && e.code === 'invalid_credentials' || /invalid login credentials/i.test(m)) return 'Email atau password salah.';
-  if (/email not confirmed/i.test(m)) return 'Email belum diverifikasi.';
-  if (e && e.status === 429) return 'Terlalu banyak percobaan login. Tunggu beberapa saat.';
-  if (/failed to fetch|network/i.test(m)) return 'Tidak dapat terhubung ke server.';
-  return m || 'Login gagal. Coba lagi nanti.';
-}
-function restoreForm() {
-  submitting = false;
-  btnLogin.classList.remove('loading');
-  btnLogin.disabled = false; idIn.disabled = false; pwIn.disabled = false;
-  btnLogin.style.background = '';
-  btnText.textContent = 'LOGIN';
-}
-function failLogin(msg) {
-  restoreForm();
-  formCard.classList.add('shake');
-  panda('sad', true);
-  showAlert(msg, 'error');
-  setTimeout(() => { formCard.classList.remove('shake'); panda('sad', false); }, 1400);
+function toast(msg, isErr = false) {
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = isErr ? 'toast err' : 'toast';
+  t.hidden = false;
+  setTimeout(() => { t.hidden = true; }, 3200);
 }
 
-async function verifyAdmin(user) {
-  const { data, error } = await client.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle();
-  if (error) return false;
-  return !!data;
-}
-async function loadProfileName(user) {
-  let { data, error } = await client.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
-  if (error) ({ data } = await client.from('profiles').select('full_name').eq('id', user.id).maybeSingle());
-  const meta = user.user_metadata || {};
-  return (data && data.full_name) || meta.full_name || meta.name || (user.email || '').split('@')[0];
-}
-async function enterPanel(user) {
-  S.user = user;
-  S.name = await loadProfileName(user);
-  $('whoName').textContent = S.name;
-  $('whoEmail').textContent = user.email || '-';
-  $('loginView').hidden = true;
-  $('panelView').hidden = false;
-  document.body.classList.add('panel-mode');
-  go(S.view);
-  startRealtime();
-}
-function leavePanel() {
-  stopRealtime();
-  closeAllModals();
-  S.user = null;
-  $('panelView').hidden = true;
-  $('loginView').hidden = false;
-  document.body.classList.remove('panel-mode');
+function esc(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  if (!client) { showAlert('Library Supabase gagal dimuat.', 'error'); btnLogin.disabled = true; return; }
-  const { data } = await client.auth.getSession();
-  if (data && data.session) {
-    const { data: u, error } = await client.auth.getUser();
-    if (!error && u && u.user && await verifyAdmin(u.user)) { await enterPanel(u.user); return; }
-    await client.auth.signOut({ scope: 'local' });
-  }
-});
-
-$('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (submitting) return;
-  alertBox.classList.remove('show');
-  const email = idIn.value.trim(), password = pwIn.value;
-  if (!email || !password) { failLogin('Email dan password tidak boleh kosong.'); return; }
-  submitting = true;
-  btnLogin.disabled = true; idIn.disabled = true; pwIn.disabled = true;
-  btnLogin.classList.add('loading');
-  btnText.textContent = 'Checking...';
+function fmtDate(d) {
+  if (!d) return '-';
   try {
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error || !data || !data.session) { failLogin(authError(error)); return; }
-    const ok = await verifyAdmin(data.user);
-    if (!ok) {
-      await client.auth.signOut();
-      failLogin('Akun ini tidak memiliki akses admin.');
-      return;
-    }
-    btnLogin.classList.remove('loading');
-    btnLogin.style.background = 'var(--success-text)';
-    btnText.textContent = 'Success';
-    panda('covering', false); panda('happy', true);
-    showAlert('Login berhasil. Membuka panel admin...', 'success');
-    setTimeout(async () => {
-      restoreForm(); panda('happy', false);
-      idIn.value = ''; pwIn.value = '';
-      alertBox.classList.remove('show');
-      await enterPanel(data.user);
-    }, 800);
-  } catch (err) {
-    failLogin(authError(err));
+    return new Date(d + (String(d).length === 10 ? 'T00:00:00' : '')).toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'short', year: 'numeric'
+    });
+  } catch (e) {
+    return d;
   }
+}
+
+// Sidebar view switcher
+document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    go(btn.getAttribute('data-view'));
+  });
 });
 
-client && client.auth.onAuthStateChange((event) => {
-  if (event === 'SIGNED_OUT' && S.user) leavePanel();
+$('btnMenu')?.addEventListener('click', () => {
+  $('sidebar').classList.toggle('open');
 });
-
-$('btnLogout').addEventListener('click', async () => {
-  await client.auth.signOut();
-  leavePanel();
-});
-$('btnMenu').addEventListener('click', () => $('sidebar').classList.toggle('open'));
-document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.addEventListener('click', () => {
-  $('sidebar').classList.remove('open');
-  go(b.dataset.view);
-}));
 
 function go(view) {
-  rtPending = false;
   S.view = view;
-  document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-  ({ dashboard: viewDashboard, endorser: viewEndorser, bookings: viewBookings, resources: viewResources, tutorials: viewTutorials })[view]();
-}
-
-async function fetchSlots() {
-  const { data, error } = await client.from(T.slots).select('*').order('scheduled_date', { ascending: true });
-  if (error) throw error;
-  S.slots = data || [];
-}
-async function fetchBookings() {
-  const { data, error } = await client.from(T.bookings).select('*, slot:' + T.slots + '(*)').order('created_at', { ascending: false });
-  if (error) throw error;
-  S.bookings = data || [];
-}
-async function fetchResources() {
-  const { data, error } = await client.from(T.res).select('*').order('created_at', { ascending: false });
-  if (error) throw error;
-  S.resources = data || [];
-  S.tagsAsText = S.resources.some(r => typeof r.tags === 'string' || typeof r.dependencies === 'string');
-}
-async function fetchTutorials() {
-  const { data, error } = await client.from(T.tut).select('*').order('created_at', { ascending: false });
-  if (error) throw error;
-  S.tutorials = data || [];
-}
-
-let rtChannel = null, rtTimer = null, rtPending = false;
-function startRealtime() {
-  stopRealtime();
-  const refresh = () => {
-    clearTimeout(rtTimer);
-    rtTimer = setTimeout(() => {
-      if (!S.user) return;
-      if (document.querySelector('.modal-scrim')) { rtPending = true; return; }
-      go(S.view);
-    }, 400);
-  };
-  rtChannel = client.channel('admin-live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: T.slots }, refresh)
-    .on('postgres_changes', { event: '*', schema: 'public', table: T.bookings }, refresh)
-    .on('postgres_changes', { event: '*', schema: 'public', table: T.res }, refresh)
-    .on('postgres_changes', { event: '*', schema: 'public', table: T.tut }, refresh)
-    .subscribe();
-}
-function stopRealtime() {
-  clearTimeout(rtTimer);
-  rtPending = false;
-  if (rtChannel) { client.removeChannel(rtChannel); rtChannel = null; }
-  closeChat();
-}
-
-async function viewDashboard() {
-  $('main').innerHTML = '<h2 class="page-title">Dashboard</h2><div class="empty">Memuat...</div>';
-  try {
-    await Promise.all([fetchSlots(), fetchBookings(), fetchResources(), fetchTutorials()]);
-  } catch (e) { $('main').innerHTML = `<h2 class="page-title">Dashboard</h2><div class="empty">${esc(errText(e))}</div>`; return; }
-  const cnt = (arr, s) => arr.filter(x => x.status === s).length;
-  const recent = S.bookings.slice(0, 5);
-  $('main').innerHTML = `<h2 class="page-title">Dashboard</h2>
-  <div class="stats">
-    <div class="stat"><b>${S.slots.length}</b><span>Total slot</span></div>
-    <div class="stat"><b>${cnt(S.slots, 'available')}</b><span>Slot tersedia</span></div>
-    <div class="stat"><b>${cnt(S.bookings, 'pending')}</b><span>Booking menunggu</span></div>
-    <div class="stat"><b>${cnt(S.bookings, 'in_production')}</b><span>Dikerjakan</span></div>
-    <div class="stat"><b>${S.resources.length}</b><span>Resources</span></div>
-    <div class="stat"><b>${S.tutorials.length}</b><span>Tutorial</span></div>
-  </div>
-  <div class="section" style="border:none;margin-top:0"><h4>Booking terbaru</h4>
-  <div class="table-wrap">${recent.length ? `<table class="cards"><thead><tr><th>Server</th><th>User</th><th>Tanggal</th><th>Status</th><th></th></tr></thead><tbody>${recent.map(b => `<tr><td data-l="Server">${esc(b.server_name)}</td><td data-l="User">${esc(b.username || b.email || '-')}</td><td data-l="Tanggal">${fmtDate(b.slot && b.slot.scheduled_date)}</td><td data-l="Status">${badge(b.status)}</td><td class="act"><button class="btn sm" data-open="${esc(b.id)}">Detail</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Belum ada booking.</div>'}</div></div>`;
-  document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openBooking(b.dataset.open)));
-}
-
-async function viewEndorser() {
-  $('main').innerHTML = '<h2 class="page-title">Endorser</h2><div class="empty">Memuat...</div>';
-  try { await Promise.all([fetchSlots(), fetchBookings()]); }
-  catch (e) { $('main').innerHTML = `<h2 class="page-title">Endorser</h2><div class="empty">${esc(errText(e))}</div>`; return; }
-  const active = (slotId) => S.bookings.find(b => b.slot_id === slotId && !['rejected', 'cancelled'].includes(b.status));
-  $('main').innerHTML = `<h2 class="page-title">Endorser</h2>
-  <div class="toolbar"><button class="btn primary" id="btnNewSlot">Buat Slot</button></div>
-  <div class="table-wrap">${S.slots.length ? `<table class="cards"><thead><tr><th>Tanggal</th><th>Jam</th><th>Status</th><th>Booking</th><th>Fase</th><th>Progress</th><th></th></tr></thead><tbody>${S.slots.map(s => {
-    const b = active(s.id);
-    return `<tr><td data-l="Tanggal">${fmtDate(s.scheduled_date)}</td><td data-l="Jam">${esc(s.time_slot || '-')}</td><td data-l="Status">${badge(s.status)}</td><td data-l="Booking">${b ? esc(b.server_name) : (s.status === 'available' ? 'Belum dibooking' : '-')}</td><td data-l="Fase">${esc(s.current_phase || '-')}</td><td data-l="Progress">${Number(s.progress) || 0}%</td><td class="act"><div class="actions">${b ? `<button class="btn sm" data-open="${esc(b.id)}">Booking</button>` : ''}<button class="btn sm data-edit="${esc(s.id)}">Edit</button><button class="btn sm danger" data-del="${esc(s.id)}">Hapus</button></div></td></tr>`;
-  }).join('')}</tbody></table>` : '<div class="empty">Belum ada slot. Buat slot pertama.</div>'}</div>`;
-  $('btnNewSlot').addEventListener('click', () => slotModal(null));
-  document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => slotModal(S.slots.find(s => s.id === b.dataset.edit))));
-  document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openBooking(b.dataset.open)));
-  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('Hapus slot ini? Booking terkait bisa ikut terhapus atau ditolak oleh database.')) return;
-    const { error } = await client.from(T.slots).delete().eq('id', b.dataset.del);
-    if (error) return toast(errText(error), true);
-    toast('Slot dihapus');
-    viewEndorser();
-  }));
-}
-
-function modal(html, wide) {
-  const scrim = document.createElement('div');
-  scrim.className = 'modal-scrim';
-  scrim.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="${wide ? 'max-width:760px' : ''}">${html}</div>`;
-  scrim.addEventListener('mousedown', (e) => { if (e.target === scrim) closeModal(scrim); });
-  document.body.appendChild(scrim);
-  scrim.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(scrim)));
-  return scrim;
-}
-function closeModal(scrim) {
-  if (scrim && scrim.__onClose) scrim.__onClose();
-  scrim.remove();
-  if (rtPending && S.user && !document.querySelector('.modal-scrim')) {
-    rtPending = false;
-    setTimeout(() => { if (S.user && !document.querySelector('.modal-scrim')) go(S.view); }, 0);
+  document.querySelectorAll('.nav-btn[data-view]').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-view') === view);
+  });
+  if (window.innerWidth <= 768) {
+    $('sidebar').classList.remove('open');
   }
-}
-const statusOptions = (list, cur) => list.map(s => `<option value="${s}" ${s === cur ? 'selected' : ''}>${LABEL[s]}</option>`).join('');
-const phaseOptions = (cur) => [''].concat(PHASES).concat(cur && !PHASES.includes(cur) ? [cur] : []).map(p => `<option value="${esc(p)}" ${p === (cur || '') ? 'selected' : ''}>${esc(p) || '-'}</option>`).join('');
 
-function slotModal(slot) {
-  const isNew = !slot;
-  const s = slot || { status: 'available', progress: 0 };
-  const m = modal(`<h3>${isNew ? 'Buat Slot' : 'Edit Slot'}<button class="btn sm" data-close>Tutup</button></h3>
-  <form id="slotForm">
-    <div class="grid2">
-      <div class="form-group"><label>Tanggal</label><input class="form-control" type="date" name="scheduled_date" value="${esc(s.scheduled_date || '')}" required></div>
-      <div class="form-group"><label>Jam / Label</label><input class="form-control" name="time_slot" value="${esc(s.time_slot || '')}" maxlength="60"></div>
-      <div class="form-group"><label>Status</label><select class="form-control" name="status">${statusOptions(STATUSES, s.status)}</select></div>
-      <div class="form-group"><label>Progress (%)</label><input class="form-control" type="number" name="progress" min="0" max="100" value="${Number(s.progress) || 0}"></div>
-      <div class="form-group"><label>Fase</label><select class="form-control" name="current_phase">${phaseOptions(s.current_phase)}</select></div>
-      <div class="form-group"><label>Nama Server</label><input class="form-control" name="server_name" value="${esc(s.server_name || '')}" maxlength="100"></div>
+  const views = {
+    dashboard: viewDashboard,
+    endorser: viewEndorser,
+    bookings: viewBookings,
+    resources: viewResources,
+    tutorials: viewTutorials,
+    database: viewDatabase
+  };
+
+  if (views[view]) views[view]();
+}
+
+// 1. View Dashboard
+async function viewDashboard() {
+  $('main').innerHTML = '<h2 class="page-title">Dashboard Studio</h2><div style="color:var(--text-muted)">Memuat data...</div>';
+  await Promise.all([fetchSlots(), fetchBookings(), fetchResources(), fetchTutorials()]);
+
+  const totalSlots = S.slots.length;
+  const availSlots = S.slots.filter(s => s.status === 'available').length;
+  const pendingBookings = S.bookings.filter(b => b.status === 'pending').length;
+  const inProd = S.bookings.filter(b => b.status === 'in_production').length;
+  const totalRes = S.resources.length;
+  const totalTut = S.tutorials.length;
+
+  $('main').innerHTML = `
+    <h2 class="page-title">Dashboard Studio</h2>
+    <div class="stats">
+      <div class="stat"><b>${totalSlots}</b><span>Total Slot</span></div>
+      <div class="stat"><b style="color:#16a34a">${availSlots}</b><span>Slot Available</span></div>
+      <div class="stat"><b style="color:#2563eb">${pendingBookings}</b><span>Booking Menunggu</span></div>
+      <div class="stat"><b style="color:#7c3aed">${inProd}</b><span>Sedang Dikerjakan</span></div>
+      <div class="stat"><b>${totalRes}</b><span>Total Resources</span></div>
+      <div class="stat"><b>${totalTut}</b><span>Total Tutorial</span></div>
     </div>
-    <div class="form-group"><label>Deskripsi</label><textarea class="form-control" name="description">${esc(s.description || '')}</textarea></div>
-    <div class="modal-foot"><button type="button" class="btn" data-close>Batal</button><button class="btn primary" type="submit">Simpan</button></div>
-  </form>`);
-  m.querySelector('#slotForm').addEventListener('submit', async (e) => {
+
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-top:1.5rem">
+      <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:0.75rem">Pesanan Terbaru</h3>
+      <div class="table-wrap" style="margin-top:0">
+        ${S.bookings.length ? `
+          <table class="cards">
+            <thead>
+              <tr>
+                <th>Server</th>
+                <th>Pemesan</th>
+                <th>Status</th>
+                <th>Tanggal Order</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${S.bookings.slice(0, 5).map(b => `
+                <tr>
+                  <td><b>${esc(b.server_name)}</b><br><small class="mono" style="color:var(--text-muted)">${esc(b.server_ip)}</small></td>
+                  <td>${esc(b.username || b.email || '-')}</td>
+                  <td><span class="badge badge-${b.status}">${b.status}</span></td>
+                  <td>${fmtDate(b.created_at)}</td>
+                  <td><button class="btn sm" data-view-booking="${b.id}">Kelola &rarr;</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<div style="padding:1.5rem;text-align:center;color:var(--text-muted)">Belum ada pesanan masuk.</div>'}
+      </div>
+    </div>
+  `;
+
+  document.querySelectorAll('[data-view-booking]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      go('bookings');
+    });
+  });
+}
+
+// 2. View Endorser Slots
+async function viewEndorser() {
+  $('main').innerHTML = '<h2 class="page-title">Kelola Slot Endorser</h2><div>Memuat slot...</div>';
+  await fetchSlots();
+
+  $('main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+      <h2 class="page-title" style="margin-bottom:0">Kelola Slot Endorser</h2>
+      <button class="btn primary" id="btnAddSlot">+ Tambah Slot Baru</button>
+    </div>
+
+    <div class="table-wrap">
+      ${S.slots.length ? `
+        <table class="cards">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Platform</th>
+              <th>Jam</th>
+              <th>Harga</th>
+              <th>Status</th>
+              <th>Server Terisi</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${S.slots.map(s => `
+              <tr>
+                <td><b>${fmtDate(s.scheduled_date)}</b></td>
+                <td><span class="mono">${esc(s.platform)}</span> &bull; <small>${esc(s.content_type || 'Shorts')}</small></td>
+                <td>${esc(s.time_slot || '-')}</td>
+                <td class="mono">Rp${Number(s.price_idr || 0).toLocaleString('id-ID')}</td>
+                <td><span class="badge badge-${s.status}">${s.status}</span></td>
+                <td>${s.server_name ? `<b>${esc(s.server_name)}</b>` : '<span style="color:var(--text-muted)">-</span>'}</td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn sm" data-edit-slot="${s.id}">Edit</button>
+                    <button class="btn sm danger" data-del-slot="${s.id}">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div style="padding:2rem;text-align:center;color:var(--text-muted)">Belum ada slot endorser. Klik tombol "+ Tambah Slot Baru" di atas.</div>'}
+    </div>
+  `;
+
+  $('btnAddSlot').addEventListener('click', () => openSlotModal());
+
+  document.querySelectorAll('[data-edit-slot]').forEach(b => {
+    b.addEventListener('click', () => {
+      const slot = S.slots.find(x => x.id === b.getAttribute('data-edit-slot'));
+      if (slot) openSlotModal(slot);
+    });
+  });
+
+  document.querySelectorAll('[data-del-slot]').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!confirm('Hapus slot ini?')) return;
+      const id = b.getAttribute('data-del-slot');
+      try {
+        await supabase.from('endorser_slots').delete().eq('id', id);
+        toast('Slot berhasil dihapus');
+        viewEndorser();
+      } catch (err) {
+        toast('Gagal menghapus slot', true);
+      }
+    });
+  });
+}
+
+function openSlotModal(slot = null) {
+  const isEdit = !!slot;
+  const m = openModal(isEdit ? 'Edit Slot Endorser' : 'Tambah Slot Baru');
+
+  m.body.innerHTML = `
+    <form id="fmSlot">
+      <div class="grid2">
+        <div class="form-group">
+          <label>Tanggal Upload *</label>
+          <input type="date" class="form-control" name="scheduled_date" value="${slot ? slot.scheduled_date : ''}" required>
+        </div>
+        <div class="form-group">
+          <label>Platform *</label>
+          <select class="form-control" name="platform">
+            <option value="TikTok" ${slot && slot.platform === 'TikTok' ? 'selected' : ''}>TikTok</option>
+            <option value="YouTube" ${slot && slot.platform === 'YouTube' ? 'selected' : ''}>YouTube</option>
+            <option value="Instagram" ${slot && slot.platform === 'Instagram' ? 'selected' : ''}>Instagram</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="form-group">
+          <label>Jam Upload</label>
+          <input type="text" class="form-control" name="time_slot" value="${slot ? esc(slot.time_slot || '') : 'Malam (19:00 - 21:00 WIB)'}">
+        </div>
+        <div class="form-group">
+          <label>Tarif (IDR)</label>
+          <input type="number" class="form-control" name="price_idr" value="${slot ? slot.price_idr || 0 : 0}">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="form-group">
+          <label>Status Slot</label>
+          <select class="form-control" name="status">
+            <option value="available" ${slot && slot.status === 'available' ? 'selected' : ''}>Available (Tersedia)</option>
+            <option value="pending" ${slot && slot.status === 'pending' ? 'selected' : ''}>Pending (Menunggu)</option>
+            <option value="in_production" ${slot && slot.status === 'in_production' ? 'selected' : ''}>In Production (Dikerjakan)</option>
+            <option value="completed" ${slot && slot.status === 'completed' ? 'selected' : ''}>Completed (Selesai)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipe Konten</label>
+          <input type="text" class="form-control" name="content_type" value="${slot ? esc(slot.content_type || '') : 'Shorts / Video Pendek'}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nama Server Terisi (Opsional)</label>
+        <input type="text" class="form-control" name="server_name" value="${slot ? esc(slot.server_name || '') : ''}">
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn sm" id="btnCancelModal">Batal</button>
+        <button type="submit" class="btn sm primary">Simpan Slot</button>
+      </div>
+    </form>
+  `;
+
+  $('btnCancelModal').addEventListener('click', () => closeModal(m));
+  $('fmSlot').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
     const payload = {
       scheduled_date: f.get('scheduled_date'),
-      time_slot: f.get('time_slot').trim() || null,
-      status: f.get('status'),
-      progress: Math.max(0, Math.min(100, parseInt(f.get('progress'), 10) || 0)),
-      current_phase: f.get('current_phase') || null,
-      server_name: f.get('server_name').trim() || null,
-      description: f.get('description').trim() || null
+      platform: f.get('platform'),
+      time_slot: f.get('time_slot') || 'Malam (19:00 - 21:00 WIB)',
+      price_idr: Number(f.get('price_idr')) || 0,
+      status: f.get('status') || 'available',
+      content_type: f.get('content_type') || 'Shorts / Video Pendek',
+      server_name: f.get('server_name')?.toString().trim() || null,
+      updated_at: new Date().toISOString()
     };
-    if (!payload.scheduled_date) return toast('Tanggal wajib diisi', true);
-    const q = isNew ? client.from(T.slots).insert(payload) : client.from(T.slots).update(payload).eq('id', slot.id);
-    const { error } = await q;
-    if (error) return toast(errText(error), true);
-    toast(isNew ? 'Slot dibuat' : 'Slot diperbarui');
-    closeModal(m);
-    viewEndorser();
+
+    try {
+      if (isEdit) {
+        await supabase.from('endorser_slots').update(payload).eq('id', slot.id);
+        toast('Slot berhasil diperbarui');
+      } else {
+        await supabase.from('endorser_slots').insert(payload);
+        toast('Slot baru berhasil ditambahkan');
+      }
+      closeModal(m);
+      viewEndorser();
+    } catch (err) {
+      toast('Gagal menyimpan slot', true);
+    }
   });
 }
 
+// 3. View Bookings & Pesanan
 async function viewBookings() {
-  $('main').innerHTML = '<h2 class="page-title">Booking / Pesanan</h2><div class="empty">Memuat...</div>';
-  try { await fetchBookings(); }
-  catch (e) { $('main').innerHTML = `<h2 class="page-title">Booking / Pesanan</h2><div class="empty">${esc(errText(e))}</div>`; return; }
-  const f = S.filter;
-  $('main').innerHTML = `<h2 class="page-title">Booking / Pesanan</h2>
-  <div class="toolbar">
-    <input class="form-control" id="fQ" placeholder="Cari server, user, email, IP" value="${esc(f.q)}">
-    <select class="form-control" id="fStatus"><option value="">Semua status</option>${statusOptions(BOOKING_STATUSES, f.status)}</select>
-    <input class="form-control" id="fDate" type="date" value="${esc(f.date)}">
-    <button class="btn" id="fReset">Reset</button>
-  </div>
-  <div class="table-wrap" id="bookTable"></div>`;
-  const draw = () => {
-    const q = S.filter.q.toLowerCase();
-    const rows = S.bookings.filter(b =>
-      (!S.filter.status || b.status === S.filter.status) &&
-      (!S.filter.date || (b.slot && b.slot.scheduled_date === S.filter.date)) &&
-      (!q || [b.server_name, b.username, b.email, b.ip, b.social_media].some(v => String(v || '').toLowerCase().includes(q))));
-    $('bookTable').innerHTML = rows.length ? `<table class="cards"><thead><tr><th>Server</th><th>User</th><th>Tanggal</th><th>Status</th><th>Progress</th><th>Fase</th><th></th></tr></thead><tbody>${rows.map(b => `<tr><td data-l="Server">${esc(b.server_name)}</td><td data-l="User">${esc(b.username || b.email || '-')}</td><td data-l="Tanggal">${fmtDate(b.slot && b.slot.scheduled_date)}</td><td data-l="Status">${badge(b.status)}</td><td data-l="Progress">${Number(b.slot && b.slot.progress) || 0}%</td><td data-l="Fase">${esc((b.slot && b.slot.current_phase) || 'Waiting Approval')}</td><td class="act"><button class="btn sm" data-open="${esc(b.id)}">Detail</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Tidak ada booking yang cocok.</div>';
-    document.querySelectorAll('#bookTable [data-open]').forEach(x => x.addEventListener('click', () => openBooking(x.dataset.open)));
-  };
-  $('fQ').addEventListener('input', (e) => { S.filter.q = e.target.value; draw(); });
-  $('fStatus').addEventListener('change', (e) => { S.filter.status = e.target.value; draw(); });
-  $('fDate').addEventListener('change', (e) => { S.filter.date = e.target.value; draw(); });
-  $('fReset').addEventListener('click', () => { S.filter = { q: '', status: '', date: '' }; viewBookings(); });
-  draw();
+  $('main').innerHTML = '<h2 class="page-title">Booking & Pesanan Masuk</h2><div>Memuat booking...</div>';
+  await fetchBookings();
+
+  $('main').innerHTML = `
+    <h2 class="page-title">Booking & Pesanan Masuk</h2>
+    <div class="table-wrap">
+      ${S.bookings.length ? `
+        <table class="cards">
+          <thead>
+            <tr>
+              <th>Server</th>
+              <th>Kontak & User</th>
+              <th>IP & Port</th>
+              <th>Status</th>
+              <th>Tanggal</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${S.bookings.map(b => `
+              <tr>
+                <td><b>${esc(b.server_name)}</b><br><small style="color:var(--text-muted)">Sosmed: ${esc(b.social_media || '-')}</small></td>
+                <td>${esc(b.username || '-')}<br><small style="color:var(--text-muted)">${esc(b.email || '-')}</small></td>
+                <td class="mono">${esc(b.server_ip)}:${esc(b.server_port || '25565')}</td>
+                <td><span class="badge badge-${b.status}">${b.status}</span></td>
+                <td>${fmtDate(b.created_at)}</td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn sm primary" data-manage-booking="${b.id}">Kelola</button>
+                    ${b.status === 'pending' ? `<button class="btn sm" data-approve-booking="${b.id}" style="color:#16a34a">Setujui</button>` : ''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div style="padding:2rem;text-align:center;color:var(--text-muted)">Belum ada pesanan booking masuk.</div>'}
+    </div>
+  `;
+
+  document.querySelectorAll('[data-approve-booking]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const id = b.getAttribute('data-approve-booking');
+      try {
+        await supabase.from('endorser_bookings').update({ status: 'approved' }).eq('id', id);
+        toast('Booking disetujui');
+        viewBookings();
+      } catch (e) {
+        toast('Gagal menyetujui booking', true);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-manage-booking]').forEach(b => {
+    b.addEventListener('click', () => {
+      const booking = S.bookings.find(x => x.id === b.getAttribute('data-manage-booking'));
+      if (booking) openBookingManager(booking);
+    });
+  });
 }
 
-function closeChat() {
-  if (S.chat && S.chat.channel) client.removeChannel(S.chat.channel);
-  S.chat = null;
-}
+async function openBookingManager(b) {
+  const m = openModal(`Kelola Pesanan: ${b.server_name}`);
+  let conv = null;
+  let chatChannel = null;
 
-async function openBooking(id) {
-  const b = S.bookings.find(x => x.id === id);
-  if (!b) return toast('Booking tidak ditemukan', true);
-  const slot = b.slot || {};
-  const logoUrl = publicUrl(LOGO_BUCKET, b.logo_path);
-  const m = modal(`<h3>${esc(b.server_name)} ${badge(b.status)}<button class="btn sm" data-close>Tutup</button></h3>
-  <dl class="kv">
-    <dt>User</dt><dd>${esc(b.username || '-')}</dd>
-    <dt>Email</dt><dd>${esc(b.email || '-')}</dd>
-    <dt>Slot</dt><dd>${fmtDate(slot.scheduled_date)} ${esc(slot.time_slot || '')}</dd>
-    <dt>Dibuat</dt><dd>${b.created_at ? fmtTime(b.created_at) : '-'}</dd>
-  </dl>
-  <div class="section"><h4>Data Server</h4>
-    <form id="srvForm">
-      <div class="grid2">
-        <div class="form-group"><label>Nama Server</label><input class="form-control" name="server_name" value="${esc(b.server_name)}" maxlength="100" required></div>
-        <div class="form-group"><label>IP Server</label><input class="form-control" name="ip" value="${esc(b.ip)}" required></div>
-        <div class="form-group"><label>Port</label><input class="form-control" name="port" value="${esc(b.port)}" required></div>
-        <div class="form-group"><label>Link Media Sosial</label><input class="form-control" name="social_media" value="${esc(b.social_media)}"></div>
+  m.body.innerHTML = `
+    <div style="font-size:0.84rem;line-height:1.6;margin-bottom:1rem;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid var(--border)">
+      <div><b>Nama Server:</b> ${esc(b.server_name)}</div>
+      <div><b>IP & Port:</b> <span class="mono">${esc(b.server_ip)}:${esc(b.server_port || '25565')}</span></div>
+      <div><b>Pemesan:</b> ${esc(b.username || b.email)} (<span style="color:var(--text-muted)">${esc(b.email || '-')}</span>)</div>
+      <div><b>Sosial Media:</b> ${b.social_media ? `<a href="${esc(b.social_media)}" target="_blank" rel="noopener">${esc(b.social_media)}</a>` : '-'}</div>
+      ${b.features ? `<div style="margin-top:6px"><b>Fitur/Catatan Pemesan:</b><br>${esc(b.features)}</div>` : ''}
+    </div>
+
+    <form id="fmBookingPhase" style="margin-bottom:1.5rem">
+      <div class="form-group">
+        <label>Ubah Status Pesanan</label>
+        <select class="form-control" name="status">
+          <option value="pending" ${b.status === 'pending' ? 'selected' : ''}>Pending (Menunggu)</option>
+          <option value="approved" ${b.status === 'approved' ? 'selected' : ''}>Approved (Disetujui)</option>
+          <option value="in_production" ${b.status === 'in_production' ? 'selected' : ''}>In Production (Dikerjakan)</option>
+          <option value="completed" ${b.status === 'completed' ? 'selected' : ''}>Completed (Selesai)</option>
+          <option value="rejected" ${b.status === 'rejected' ? 'selected' : ''}>Rejected (Ditolak)</option>
+        </select>
       </div>
-      <div class="form-group"><label>Fitur yang Dibahas</label><textarea class="form-control" name="features">${esc(b.features)}</textarea></div>
-      <button class="btn sm primary" type="submit">Simpan Data Server</button>
-    </form>
-  </div>
-  <div class="section"><h4>Logo Server</h4>
-    <div class="logo-box">
-      ${logoUrl ? `<img src="${esc(logoUrl)}" alt="Logo server">` : '<span class="hint">Belum ada logo.</span>'}
-      <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-      <button class="btn sm" id="logoPick">${logoUrl ? 'Ganti Logo' : 'Upload Logo'}</button>
-      ${logoUrl ? '<button class="btn sm danger" id="logoDel">Hapus Logo</button>' : ''}
-    </div>
-  </div>
-  <div class="section"><h4>Status &amp; Progres</h4>
-    <div class="grid2">
-      <div class="form-group"><label>Status</label><select class="form-control" id="stSel">${statusOptions(BOOKING_STATUSES, b.status)}</select></div>
-      <div class="form-group"><label>Progress (%)</label><input class="form-control" id="stProg" type="number" min="0" max="100" value="${Number(slot.progress) || 0}"></div>
-      <div class="form-group"><label>Fase</label><select class="form-control" id="stPhase">${phaseOptions(slot.current_phase || (b.status === 'pending' ? 'Waiting Approval' : ''))}</select></div>
-    </div>
-    <div class="actions">
-      <button class="btn sm primary" id="stSave">Simpan Perubahan</button>
-      <button class="btn sm ok" data-quick="approved">Approve</button>
-      <button class="btn sm danger" data-quick="rejected">Reject</button>
-      <button class="btn sm danger" data-quick="cancelled">Batalkan</button>
-      <button class="btn sm danger" id="bkDel">Hapus Booking</button>
-    </div>
-  </div>
-  <div class="section"><h4>Chat dengan User</h4>
-    <div class="chat-log" id="chatLog"><span class="hint">Memuat...</span></div>
-    <form class="chat-form" id="chatForm"><input class="form-control" id="chatInput" placeholder="Tulis pesan" maxlength="2000" autocomplete="off"><button class="btn primary" type="submit">Kirim</button></form>
-  </div>`, true);
-  m.__onClose = closeChat;
 
-  m.querySelector('#srvForm').addEventListener('submit', async (e) => {
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button type="submit" class="btn sm primary">Perbarui Status</button>
+      </div>
+    </form>
+
+    <div style="border-top:1px solid var(--border);padding-top:1rem">
+      <h4 style="font-size:0.92rem;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span>💬 Live Chat Koordinasi dengan Klien</span>
+      </h4>
+      <div id="adminChatList" style="max-height:220px;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:0.75rem;color:var(--text-muted);text-align:center">Memuat riwayat chat...</div>
+      </div>
+      <form id="adminChatFm" style="display:flex;gap:6px">
+        <input type="text" id="adminChatInput" class="form-control" placeholder="Ketik balasan untuk klien..." style="font-size:0.8125rem" required>
+        <button type="submit" class="btn sm primary" style="white-space:nowrap">Kirim</button>
+      </form>
+    </div>
+
+    <div class="modal-foot" style="margin-top:1rem">
+      <button type="button" class="btn sm" id="btnCancelBookMgt">Tutup</button>
+    </div>
+  `;
+
+  $('btnCancelBookMgt').addEventListener('click', () => {
+    if (chatChannel) supabase.removeChannel(chatChannel);
+    closeModal(m);
+  });
+
+  $('fmBookingPhase').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const payload = { server_name: f.get('server_name').trim(), ip: f.get('ip').trim(), port: f.get('port').trim(), social_media: f.get('social_media').trim(), features: f.get('features').trim() };
-    const { error } = await client.from(T.bookings).update(payload).eq('id', id);
-    if (error) return toast(errText(error), true);
-    toast('Data server disimpan');
-    afterBookingChange(m);
-  });
+    const newStatus = f.get('status');
 
-  let statusBusy = false;
-  const setStatusBusy = (on) => {
-    statusBusy = on;
-    m.querySelectorAll('#stSave, [data-quick]').forEach(btn => { btn.disabled = on; });
-  };
-  const applyStatus = async (status) => {
-    if (statusBusy) return;
-    const phaseEl = $('stPhase'), progEl = $('stProg');
-    const phaseUnset = !phaseEl.value || phaseEl.value === 'Waiting Approval';
-    if ((status === 'approved' || status === 'in_production') && phaseUnset) phaseEl.value = 'Planning';
-    if (status === 'completed' && phaseUnset) { phaseEl.value = 'Published'; progEl.value = 100; }
-    const progress = Math.max(0, Math.min(100, parseInt(progEl.value, 10) || 0));
-    const phase = phaseEl.value;
-    setStatusBusy(true);
-    const { error } = await client.rpc('admin_update_booking', { p_booking_id: id, p_status: status, p_progress: progress, p_phase: phase });
-    if (error) { setStatusBusy(false); return toast(errText(error), true); }
-    toast('Status diperbarui');
-    afterBookingChange(m);
-  };
-  m.querySelector('#stSave').addEventListener('click', () => applyStatus($('stSel').value));
-  m.querySelectorAll('[data-quick]').forEach(btn => btn.addEventListener('click', () => {
-    const st = btn.dataset.quick;
-    if (st !== 'approved' && !confirm(`Ubah status booking menjadi ${LABEL[st]}?`)) return;
-    applyStatus(st);
-  }));
-  m.querySelector('#bkDel').addEventListener('click', async () => {
-    if (!confirm('Hapus booking ini permanen?')) return;
-    const slotId = b.slot_id;
-    if (b.logo_path && !/^https?:/i.test(b.logo_path)) await client.storage.from(LOGO_BUCKET).remove([b.logo_path]);
-    const { error } = await client.from(T.bookings).delete().eq('id', id);
-    if (error) return toast(errText(error), true);
-    await client.from(T.slots).update({ status: 'available', progress: 0, current_phase: null, server_name: null }).eq('id', slotId);
-    toast('Booking dihapus');
-    closeModal(m);
-    go(S.view);
-  });
-
-  const fileIn = m.querySelector('#logoFile');
-  m.querySelector('#logoPick').addEventListener('click', () => fileIn.click());
-  fileIn.addEventListener('change', async () => {
-    const file = fileIn.files[0];
-    const bad = validateImage(file);
-    if (bad) return toast(bad, true);
-    if (!file) return;
-    const path = `${b.user_id}/${Date.now()}_${safeName(file.name)}`;
-    const up = await client.storage.from(LOGO_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-    if (up.error) return toast(errText(up.error), true);
-    const { error } = await client.from(T.bookings).update({ logo_path: path }).eq('id', id);
-    if (error) { await client.storage.from(LOGO_BUCKET).remove([path]); return toast(errText(error), true); }
-    if (b.logo_path && !/^https?:/i.test(b.logo_path)) await client.storage.from(LOGO_BUCKET).remove([b.logo_path]);
-    toast('Logo diperbarui');
-    afterBookingChange(m);
-  });
-  const del = m.querySelector('#logoDel');
-  if (del) del.addEventListener('click', async () => {
-    if (!confirm('Hapus logo server?')) return;
-    const { error } = await client.from(T.bookings).update({ logo_path: null }).eq('id', id);
-    if (error) return toast(errText(error), true);
-    if (b.logo_path && !/^https?:/i.test(b.logo_path)) await client.storage.from(LOGO_BUCKET).remove([b.logo_path]);
-    toast('Logo dihapus');
-    afterBookingChange(m);
-  });
-
-  initChat(m, id);
-}
-async function afterBookingChange(m) {
-  closeModal(m);
-  await fetchBookings().catch(() => {});
-  go(S.view);
-}
-
-async function initChat(m, bookingId) {
-  const log = m.querySelector('#chatLog');
-  const alive = () => document.body.contains(m);
-  const lookup = () => client.from(T.conv).select('id').eq('booking_id', bookingId).maybeSingle();
-  let { data: conv, error } = await lookup();
-  if (!alive()) return;
-  if (error) {
-    log.innerHTML = `<span class="hint">${error.code === 'PGRST116' ? 'Ditemukan lebih dari satu percakapan untuk booking ini.' : 'Gagal memuat chat.'}</span>`;
-    return;
-  }
-  if (!conv) {
-    const ins = await client.from(T.conv).insert({ booking_id: bookingId }).select('id').single();
-    if (!alive()) return;
-    if (!ins.error) conv = ins.data;
-    else if (ins.error.code === '23505') {
-      const again = await lookup();
-      if (!alive()) return;
-      conv = again.data || null;
-    }
-    if (!conv) { log.innerHTML = '<span class="hint">Gagal membuat percakapan.</span>'; return; }
-  }
-  const seen = new Set();
-  const add = (msg) => {
-    if (seen.has(msg.id)) return;
-    seen.add(msg.id);
-    const el = document.createElement('div');
-    el.className = 'msg' + (msg.sender_id === S.user.id ? ' me' : '');
-    el.innerHTML = `${esc(msg.body)}<small>${fmtTime(msg.created_at)}</small>`;
-    log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
-  };
-  const { data: msgs, error: me } = await client.from(T.msgs).select('id, sender_id, body, created_at').eq('conversation_id', conv.id).order('created_at', { ascending: true }).limit(300);
-  if (!alive()) return;
-  log.innerHTML = '';
-  if (me) { log.innerHTML = '<span class="hint">Gagal memuat pesan.</span>'; return; }
-  if (!msgs.length) log.innerHTML = '<span class="hint">Belum ada pesan.</span>';
-  else msgs.forEach(add);
-  closeChat();
-  const channel = client.channel('admin-chat-' + conv.id)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: T.msgs, filter: `conversation_id=eq.${conv.id}` }, (p) => {
-      const hint = log.querySelector('.hint'); if (hint) hint.remove();
-      add(p.new);
-    }).subscribe();
-  S.chat = { channel, conversationId: conv.id, bookingId };
-  let sending = false;
-  m.querySelector('#chatForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (sending) return;
-    const input = m.querySelector('#chatInput');
-    const sendBtn = m.querySelector('#chatForm button');
-    const text = input.value.trim();
-    if (!text) return;
-    sending = true;
-    input.disabled = true;
-    sendBtn.disabled = true;
-    const { data, error: se } = await client.from(T.msgs).insert({ conversation_id: conv.id, sender_id: S.user.id, body: text }).select('id, sender_id, body, created_at').single();
-    sending = false;
-    input.disabled = false;
-    sendBtn.disabled = false;
-    if (se) return toast(errText(se), true);
-    input.value = '';
-    const hint = log.querySelector('.hint'); if (hint) hint.remove();
-    add(data);
-    input.focus();
-  });
-}
-
-function closeAllModals() {
-  document.querySelectorAll('.modal-scrim').forEach(el => closeModal(el));
-}
-
-async function recheckAdmin() {
-  if (!S.user || S.rechecking) return;
-  S.rechecking = true;
-  const uid = S.user.id;
-  try {
-    const { data, error } = await client.from('admin_users').select('user_id').eq('user_id', uid).maybeSingle();
-    if (!error && !data && S.user && S.user.id === uid) {
-      await client.auth.signOut();
-      leavePanel();
-      showAlert('Akses admin untuk akun ini sudah dicabut.', 'error');
-    }
-  } catch (err) {
-    console.error('Admin recheck failed:', err && err.message ? err.message : 'unknown error');
-  } finally {
-    S.rechecking = false;
-  }
-}
-
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !S.user) return;
-  recheckAdmin();
-});
-
-const toArr = (v) => Array.isArray(v) ? v : (v ? String(v).split(',').map(x => x.trim()).filter(Boolean) : []);
-const fromCsv = (s) => s.split(',').map(x => x.trim()).filter(Boolean);
-
-async function viewResources() {
-  $('main').innerHTML = '<h2 class="page-title">Resources</h2><div class="empty">Memuat...</div>';
-  try { await fetchResources(); }
-  catch (e) { $('main').innerHTML = `<h2 class="page-title">Resources</h2><div class="empty">${esc(errText(e))}</div>`; return; }
-  $('main').innerHTML = `<h2 class="page-title">Resources</h2>
-  <div class="toolbar"><button class="btn primary" id="btnNewRes">Upload Resource</button></div>
-  <div class="table-wrap">${S.resources.length ? `<table class="cards"><thead><tr><th></th><th>Nama</th><th>Kategori</th><th>Versi</th><th>Akses</th><th>File</th><th></th></tr></thead><tbody>${S.resources.map(r => `<tr><td data-l="Thumb">${r.thumbnail_path ? `<img class="thumb" src="${esc(publicUrl(THUMB_BUCKET, r.thumbnail_path))}" alt="">` : ''}</td><td data-l="Nama">${esc(r.name)}</td><td data-l="Kategori">${esc(r.category || '-')}</td><td data-l="Versi">${esc(r.version || '-')}</td><td data-l="Akses">${r.is_free ? 'Gratis' : 'Terbatas'}</td><td data-l="File">${esc(r.file_name || (r.file_path ? 'Ada' : '-'))}</td><td class="act"><div class="actions"><button class="btn sm" data-edit="${esc(r.id)}">Edit</button><button class="btn sm danger" data-del="${esc(r.id)}">Hapus</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Belum ada resource.</div>'}</div>`;
-  $('btnNewRes').addEventListener('click', () => resModal(null));
-  document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => resModal(S.resources.find(r => r.id === b.dataset.edit))));
-  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
-    const r = S.resources.find(x => x.id === b.dataset.del);
-    if (!confirm(`Hapus resource "${r.name}" beserta file dan thumbnail?`)) return;
-    const { error } = await client.from(T.res).delete().eq('id', r.id);
-    if (error) return toast(errText(error), true);
-    if (r.file_path) await client.storage.from(FILES_BUCKET).remove([r.file_path]);
-    if (r.thumbnail_path && !/^https?:/i.test(r.thumbnail_path)) await client.storage.from(THUMB_BUCKET).remove([r.thumbnail_path]);
-    toast('Resource dihapus');
-    viewResources();
-  }));
-}
-
-function resModal(r) {
-  const isNew = !r;
-  const x = r || { is_free: true };
-  const m = modal(`<h3>${isNew ? 'Upload Resource' : 'Edit Resource'}<button class="btn sm" data-close>Tutup</button></h3>
-  <form id="resForm">
-    <div class="grid2">
-      <div class="form-group"><label>Nama</label><input class="form-control" name="name" value="${esc(x.name || '')}" maxlength="150" required></div>
-      <div class="form-group"><label>Kategori / Tipe</label><input class="form-control" name="category" value="${esc(x.category || '')}" maxlength="60" required></div>
-      <div class="form-group"><label>Versi</label><input class="form-control" name="version" value="${esc(x.version || '')}" maxlength="40"></div>
-      <div class="form-group"><label>Akses</label><select class="form-control" name="is_free"><option value="1" ${x.is_free ? 'selected' : ''}>Gratis</option><option value="0" ${x.is_free ? '' : 'selected'}>Terbatas</option></select></div>
-      <div class="form-group"><label>Dependencies (pisahkan koma)</label><input class="form-control" name="dependencies" value="${esc(toArr(x.dependencies).join(', '))}"></div>
-      <div class="form-group"><label>Tags (pisahkan koma)</label><input class="form-control" name="tags" value="${esc(toArr(x.tags).join(', '))}"></div>
-    </div>
-    <div class="form-group"><label>Deskripsi Singkat</label><input class="form-control" name="short_description" value="${esc(x.short_description || '')}" maxlength="240"></div>
-    <div class="form-group"><label>Deskripsi Lengkap</label><textarea class="form-control" name="description">${esc(x.description || '')}</textarea></div>
-    <div class="form-group"><label>Code Preview</label><textarea class="form-control" name="code_preview" spellcheck="false" style="font-family:ui-monospace,monospace;font-size:.78rem">${esc(x.code_preview || '')}</textarea></div>
-    <div class="grid2">
-      <div class="form-group"><label>Thumbnail (PNG/JPG/WEBP, maks 2 MB)</label><input class="form-control" type="file" name="thumb" accept="image/png,image/jpeg,image/webp,image/gif" style="padding-top:9px">${x.thumbnail_path ? `<div class="logo-box" style="margin-top:.5rem"><img class="thumb" src="${esc(publicUrl(THUMB_BUCKET, x.thumbnail_path))}" alt=""><label style="font-weight:500;font-size:.78rem"><input type="checkbox" name="rm_thumb"> Hapus thumbnail</label></div>` : ''}</div>
-      <div class="form-group"><label>File Resource (maks 50 MB)</label><input class="form-control" type="file" name="file" style="padding-top:9px">${x.file_path ? `<div class="hint">File saat ini: ${esc(x.file_name || x.file_path)}</div>` : ''}</div>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn" data-close>Batal</button><button class="btn primary" type="submit" id="resSave">Simpan</button></div>
-  </form>`, true);
-  m.querySelector('#resForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target, f = new FormData(form);
-    const thumb = f.get('thumb'), file = f.get('file');
-    const hasThumb = thumb && thumb.size > 0, hasFile = file && file.size > 0;
-    if (hasThumb) { const bad = validateImage(thumb); if (bad) return toast(bad, true); }
-    if (hasFile && file.size > 50 * 1024 * 1024) return toast('Ukuran file maksimal 50 MB.', true);
-    const btn = $('resSave');
-    btn.disabled = true; btn.textContent = 'Menyimpan...';
-    const uploaded = [];
     try {
-      const payload = {
-        name: f.get('name').trim(),
-        category: f.get('category').trim(),
-        version: f.get('version').trim() || null,
-        is_free: f.get('is_free') === '1',
-        short_description: f.get('short_description').trim() || null,
-        description: f.get('description').trim() || null,
-        code_preview: f.get('code_preview') || null
-      };
-      const deps = fromCsv(f.get('dependencies')), tags = fromCsv(f.get('tags'));
-      const asText = S.tagsAsText || (r && (typeof r.tags === 'string' || typeof r.dependencies === 'string'));
-      payload.dependencies = asText ? (deps.join(', ') || null) : deps;
-      payload.tags = asText ? (tags.join(', ') || null) : tags;
-      const stamp = Date.now();
-      let oldThumb = null, oldFile = null;
-      if (hasThumb) {
-        const path = `${stamp}_${safeName(thumb.name)}`;
-        const up = await client.storage.from(THUMB_BUCKET).upload(path, thumb, { contentType: thumb.type });
-        if (up.error) throw up.error;
-        uploaded.push([THUMB_BUCKET, path]);
-        payload.thumbnail_path = path;
-        if (r && r.thumbnail_path) oldThumb = r.thumbnail_path;
-      } else if (r && f.get('rm_thumb')) {
-        payload.thumbnail_path = null;
-        oldThumb = r.thumbnail_path;
+      const { error: bErr } = await supabase.from('endorser_bookings').update({ status: newStatus }).eq('id', b.id);
+      if (bErr) throw bErr;
+
+      if (b.slot_id) {
+        await supabase.from('endorser_slots').update({ 
+          status: newStatus === 'approved' ? 'in_production' : (newStatus === 'completed' ? 'completed' : (newStatus === 'rejected' ? 'available' : 'pending'))
+        }).eq('id', b.slot_id);
       }
-      if (hasFile) {
-        const path = `${stamp}_${safeName(file.name)}`;
-        const up = await client.storage.from(FILES_BUCKET).upload(path, file, { contentType: file.type || 'application/octet-stream' });
-        if (up.error) throw up.error;
-        uploaded.push([FILES_BUCKET, path]);
-        payload.file_path = path;
-        payload.file_name = file.name;
-        if (r && r.file_path) oldFile = r.file_path;
+      toast('Status pesanan berhasil diperbarui');
+      b.status = newStatus;
+      viewBookings();
+    } catch (err) {
+      toast(`Gagal: ${err.message || 'Gagal update status'}`, true);
+    }
+  });
+
+  // Chat logic
+  const chatListEl = $('adminChatList');
+  const chatFmEl = $('adminChatFm');
+  const chatInEl = $('adminChatInput');
+
+  function renderAdminChat(messages) {
+    if (!messages || messages.length === 0) {
+      chatListEl.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);text-align:center">Belum ada percakapan. Kirim pesan pembuka di bawah.</div>';
+      return;
+    }
+    chatListEl.innerHTML = messages.map(msg => {
+      const isAdmin = msg.sender_role === 'admin';
+      return `
+        <div style="align-self:${isAdmin ? 'flex-end' : 'flex-start'};max-width:85%;background:${isAdmin ? '#0f172a' : '#f1f5f9'};color:${isAdmin ? '#fff' : '#1e293b'};padding:6px 10px;border-radius:8px;font-size:0.8125rem">
+          <div style="font-size:0.65rem;opacity:0.75;margin-bottom:2px">${isAdmin ? 'Admin rakDEV' : (esc(b.username || 'Klien'))}</div>
+          <div>${esc(msg.body)}</div>
+        </div>
+      `;
+    }).join('');
+    chatListEl.scrollTop = chatListEl.scrollHeight;
+  }
+
+  try {
+    const { data: convData } = await supabase.from('conversations').select('*').eq('booking_id', b.id).maybeSingle();
+    conv = convData;
+    if (conv) {
+      const { data: msgs } = await supabase.from('messages').select('*').eq('conversation_id', conv.id).order('created_at', { ascending: true });
+      renderAdminChat(msgs || []);
+
+      // Realtime listener
+      chatChannel = supabase
+        .channel(`admin_chat_${conv.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conv.id}` }, (payload) => {
+          const div = document.createElement('div');
+          const isAdmin = payload.new.sender_role === 'admin';
+          div.style.cssText = `align-self:${isAdmin ? 'flex-end' : 'flex-start'};max-width:85%;background:${isAdmin ? '#0f172a' : '#f1f5f9'};color:${isAdmin ? '#fff' : '#1e293b'};padding:6px 10px;border-radius:8px;font-size:0.8125rem`;
+          div.innerHTML = `
+            <div style="font-size:0.65rem;opacity:0.75;margin-bottom:2px">${isAdmin ? 'Admin rakDEV' : (esc(b.username || 'Klien'))}</div>
+            <div>${esc(payload.new.body)}</div>
+          `;
+          chatListEl.appendChild(div);
+          chatListEl.scrollTop = chatListEl.scrollHeight;
+        })
+        .subscribe();
+    } else {
+      chatListEl.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);text-align:center">Room chat belum dibuat untuk booking ini.</div>';
+    }
+  } catch (ce) {
+    chatListEl.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted)">Gagal memuat chat.</div>';
+  }
+
+  chatFmEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = chatInEl.value.trim();
+    if (!text || !conv) return;
+    chatInEl.value = '';
+
+    try {
+      const { error: sendErr } = await supabase.from('messages').insert({
+        conversation_id: conv.id,
+        sender_id: S.user?.id || null,
+        sender_role: 'admin',
+        body: text
+      });
+      if (sendErr) throw sendErr;
+    } catch (err) {
+      toast(`Gagal mengirim chat: ${err.message}`, true);
+    }
+  });
+}
+
+// 4. View Resources
+async function viewResources() {
+  $('main').innerHTML = '<h2 class="page-title">Kelola Resources</h2><div>Memuat file...</div>';
+  await fetchResources();
+
+  $('main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+      <h2 class="page-title" style="margin-bottom:0">Kelola Resources</h2>
+      <button class="btn primary" id="btnAddRes">+ Upload Resource Baru</button>
+    </div>
+
+    <div class="table-wrap">
+      ${S.resources.length ? `
+        <table class="cards">
+          <thead>
+            <tr>
+              <th>Judul</th>
+              <th>Kategori</th>
+              <th>Versi</th>
+              <th>Ukuran</th>
+              <th>Unduhan</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${S.resources.map(r => `
+              <tr>
+                <td><b>${esc(r.title)}</b><br><small style="color:var(--text-muted)">${esc(r.file_name || '-')}</small></td>
+                <td><span class="badge" style="background:#f1f5f9">${esc(r.category || 'Plugin')}</span></td>
+                <td class="mono">v${esc(r.version || '1.0.0')}</td>
+                <td class="mono">${esc(r.file_size || '-')}</td>
+                <td class="mono">${r.downloads_count || 0}</td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn sm" data-edit-res="${r.id}">Edit</button>
+                    <button class="btn sm danger" data-del-res="${r.id}">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div style="padding:2rem;text-align:center;color:var(--text-muted)">Belum ada resource file. Klik "+ Upload Resource Baru" di atas.</div>'}
+    </div>
+  `;
+
+  $('btnAddRes').addEventListener('click', () => openResourceModal());
+
+  document.querySelectorAll('[data-edit-res]').forEach(b => {
+    b.addEventListener('click', () => {
+      const res = S.resources.find(x => x.id === b.getAttribute('data-edit-res'));
+      if (res) openResourceModal(res);
+    });
+  });
+
+  document.querySelectorAll('[data-del-res]').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!confirm('Hapus resource ini?')) return;
+      const id = b.getAttribute('data-del-res');
+      try {
+        await supabase.from('resources').delete().eq('id', id);
+        toast('Resource berhasil dihapus');
+        viewResources();
+      } catch (e) {
+        toast('Gagal menghapus resource', true);
       }
-      const q = isNew ? client.from(T.res).insert(payload) : client.from(T.res).update(payload).eq('id', r.id);
-      const { error } = await q;
-      if (error) throw error;
-      if (oldThumb && !/^https?:/i.test(oldThumb)) await client.storage.from(THUMB_BUCKET).remove([oldThumb]);
-      if (oldFile) await client.storage.from(FILES_BUCKET).remove([oldFile]);
-      toast(isNew ? 'Resource ditambahkan' : 'Resource diperbarui');
+    });
+  });
+}
+
+function openResourceModal(res = null) {
+  const isEdit = !!res;
+  const m = openModal(isEdit ? 'Edit Resource' : 'Upload Resource Baru');
+
+  m.body.innerHTML = `
+    <form id="fmRes">
+      <div class="form-group">
+        <label>Judul Resource *</label>
+        <input type="text" class="form-control" name="title" value="${res ? esc(res.title) : ''}" required>
+      </div>
+      <div class="grid2">
+        <div class="form-group">
+          <label>Kategori *</label>
+          <select class="form-control" name="category">
+            <option value="Plugin" ${res && res.category === 'Plugin' ? 'selected' : ''}>Plugin</option>
+            <option value="Skript" ${res && res.category === 'Skript' ? 'selected' : ''}>Skript</option>
+            <option value="Config" ${res && res.category === 'Config' ? 'selected' : ''}>Config</option>
+            <option value="Maps" ${res && res.category === 'Maps' ? 'selected' : ''}>Maps</option>
+            <option value="Tools" ${res && res.category === 'Tools' ? 'selected' : ''}>Tools</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Versi</label>
+          <input type="text" class="form-control" name="version" value="${res ? esc(res.version || '1.0.0') : '1.0.0'}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>File Resource (Upload ke Supabase Storage atau masukkan URL) *</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input type="file" id="resFileUpload" class="form-control" style="font-size:0.8125rem">
+          <button type="button" class="btn sm" id="btnUploadResFile" style="white-space:nowrap">Upload File</button>
+        </div>
+        <input type="url" class="form-control" id="resDownloadUrl" name="download_url" value="${res ? esc(res.download_url || '') : ''}" placeholder="https://..." required>
+      </div>
+      <div class="grid2">
+        <div class="form-group">
+          <label>Ukuran File</label>
+          <input type="text" class="form-control" id="resFileSize" name="file_size" value="${res ? esc(res.file_size || '') : '1.2 MB'}">
+        </div>
+        <div class="form-group">
+          <label>Gambar Thumbnail (Upload atau Masukkan URL)</label>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <input type="file" id="resThumbUpload" accept="image/*" class="form-control" style="font-size:0.8125rem">
+            <button type="button" class="btn sm" id="btnUploadResThumb" style="white-space:nowrap">Upload Gambar</button>
+          </div>
+          <input type="url" class="form-control" id="resThumbUrl" name="thumbnail_url" value="${res ? esc(res.thumbnail_url || '') : ''}" placeholder="https://...">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Deskripsi Singkat</label>
+        <textarea class="form-control" name="description" rows="2">${res ? esc(res.description || '') : ''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Tags / Kata Kunci (Dipisah koma)</label>
+        <input type="text" class="form-control" name="tags" value="${res ? esc(res.tags || '') : ''}" placeholder="luckperms, economy, pvp">
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn sm" id="btnCancelResModal">Batal</button>
+        <button type="submit" class="btn sm primary">Simpan Resource</button>
+      </div>
+    </form>
+  `;
+
+  $('btnUploadResFile').addEventListener('click', async () => {
+    const file = $('resFileUpload').files?.[0];
+    if (!file) { toast('Pilih file terlebih dahulu', true); return; }
+    $('btnUploadResFile').disabled = true;
+    $('btnUploadResFile').textContent = 'Mengupload...';
+    try {
+      const up = await uploadFileToStorage('resource-files', file);
+      $('resDownloadUrl').value = up.publicUrl;
+      $('resFileSize').value = up.fileSize;
+      toast('File berhasil diupload ke Supabase Storage!');
+    } catch (err) {
+      toast(`Gagal upload: ${err.message}`, true);
+    } finally {
+      $('btnUploadResFile').disabled = false;
+      $('btnUploadResFile').textContent = 'Upload File';
+    }
+  });
+
+  $('btnUploadResThumb').addEventListener('click', async () => {
+    const file = $('resThumbUpload').files?.[0];
+    if (!file) { toast('Pilih gambar terlebih dahulu', true); return; }
+    $('btnUploadResThumb').disabled = true;
+    $('btnUploadResThumb').textContent = 'Mengupload...';
+    try {
+      const up = await uploadFileToStorage('resource-thumbnails', file);
+      $('resThumbUrl').value = up.publicUrl;
+      toast('Thumbnail berhasil diupload!');
+    } catch (err) {
+      toast(`Gagal upload: ${err.message}`, true);
+    } finally {
+      $('btnUploadResThumb').disabled = false;
+      $('btnUploadResThumb').textContent = 'Upload Gambar';
+    }
+  });
+
+  $('btnCancelResModal').addEventListener('click', () => closeModal(m));
+  $('fmRes').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const payload = {
+      title: f.get('title'),
+      category: f.get('category'),
+      version: f.get('version'),
+      download_url: f.get('download_url'),
+      file_size: f.get('file_size'),
+      thumbnail_url: f.get('thumbnail_url') || null,
+      description: f.get('description'),
+      tags: f.get('tags'),
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      if (isEdit) {
+        const { error } = await supabase.from('resources').update(payload).eq('id', res.id);
+        if (error) throw error;
+        toast('Resource diperbarui');
+      } else {
+        const { error } = await supabase.from('resources').insert(payload);
+        if (error) throw error;
+        toast('Resource baru ditambahkan');
+      }
       closeModal(m);
       viewResources();
     } catch (err) {
-      for (const [bucket, path] of uploaded) await client.storage.from(bucket).remove([path]);
-      toast(errText(err), true);
-      btn.disabled = false; btn.textContent = 'Simpan';
+      toast(`Gagal: ${err.message || 'Gagal menyimpan resource'}`, true);
     }
   });
 }
 
+// 5. View Tutorials
 async function viewTutorials() {
-  $('main').innerHTML = '<h2 class="page-title">Tutorial</h2><div class="empty">Memuat...</div>';
-  try { await fetchTutorials(); }
-  catch (e) { $('main').innerHTML = `<h2 class="page-title">Tutorial</h2><div class="empty">${esc(errText(e))}</div>`; return; }
-  $('main').innerHTML = `<h2 class="page-title">Tutorial</h2>
-  <div class="toolbar"><button class="btn primary" id="btnNewTut">Tambah Tutorial</button></div>
-  <div class="table-wrap">${S.tutorials.length ? `<table class="cards"><thead><tr><th>Thumbnail</th><th>Judul</th><th>Platform</th><th>Kategori</th><th>Link Video</th><th></th></tr></thead><tbody>${S.tutorials.map(t => {
-    const vidUrl = t.video_url || t.youtube_url || '';
-    const thumbUrl = t.thumbnail_url ? (t.thumbnail_url.startsWith('http') ? t.thumbnail_url : publicUrl(TUTORIAL_THUMB_BUCKET, t.thumbnail_url)) : '';
-    return `<tr>
-      <td data-l="Thumb">${thumbUrl ? `<img class="thumb" src="${esc(thumbUrl)}" alt="" onerror="this.onerror=null;this.src=''">` : '<span class="hint">No image</span>'}</td>
-      <td data-l="Judul"><b>${esc(t.title)}</b>${t.description ? `<br><small class="hint">${esc(t.description.slice(0, 75))}${t.description.length > 75 ? '...' : ''}</small>` : ''}</td>
-      <td data-l="Platform"><span class="badge badge-${(t.platform || 'youtube').toLowerCase()}">${esc(t.platform || 'YouTube')}</span></td>
-      <td data-l="Kategori">${esc(t.category || 'General')}</td>
-      <td data-l="Video">${vidUrl ? `<a href="${esc(vidUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-blue);text-decoration:underline">Buka Video ↗</a>` : '-'}</td>
-      <td class="act"><div class="actions"><button class="btn sm" data-edit-tut="${esc(t.id)}">Edit</button><button class="btn sm danger" data-del-tut="${esc(t.id)}">Hapus</button></div></td>
-    </tr>`;
-  }).join('')}</tbody></table>` : '<div class="empty">Belum ada tutorial. Klik "Tambah Tutorial" untuk mulai menambahkan.</div>'}</div>`;
+  $('main').innerHTML = '<h2 class="page-title">Kelola Video Tutorial</h2><div>Memuat tutorial...</div>';
+  await fetchTutorials();
 
-  $('btnNewTut').addEventListener('click', () => tutorialModal(null));
-  document.querySelectorAll('[data-edit-tut]').forEach(b => b.addEventListener('click', () => tutorialModal(S.tutorials.find(t => t.id === b.dataset.editTut))));
-  document.querySelectorAll('[data-del-tut]').forEach(b => b.addEventListener('click', async () => {
-    const t = S.tutorials.find(x => x.id === b.dataset.delTut);
-    if (!confirm(`Hapus tutorial "${t.title}" beserta thumbnail?`)) return;
-    const { error } = await client.from(T.tut).delete().eq('id', t.id);
-    if (error) return toast(errText(error), true);
-    if (t.thumbnail_url && !/^https?:/i.test(t.thumbnail_url)) {
-      await client.storage.from(TUTORIAL_THUMB_BUCKET).remove([t.thumbnail_url]);
-    }
-    toast('Tutorial dihapus');
-    viewTutorials();
-  }));
-}
-
-function tutorialModal(t) {
-  const isNew = !t;
-  const x = t || { platform: 'YouTube', category: 'General' };
-  const currentThumbUrl = x.thumbnail_url ? (x.thumbnail_url.startsWith('http') ? x.thumbnail_url : publicUrl(TUTORIAL_THUMB_BUCKET, x.thumbnail_url)) : '';
-  const vidUrl = x.video_url || x.youtube_url || '';
-
-  const m = modal(`<h3>${isNew ? 'Tambah Tutorial' : 'Edit Tutorial'}<button class="btn sm" data-close>Tutup</button></h3>
-  <form id="tutForm">
-    <div class="grid2">
-      <div class="form-group"><label>Judul Tutorial *</label><input class="form-control" name="title" value="${esc(x.title || '')}" maxlength="150" required placeholder="Contoh: Cara Setup Purpur Server"></div>
-      <div class="form-group"><label>Platform Video *</label>
-        <select class="form-control" name="platform" id="tutPlatformSelect" required>
-          <option value="YouTube" ${x.platform === 'YouTube' ? 'selected' : ''}>YouTube</option>
-          <option value="TikTok" ${x.platform === 'TikTok' ? 'selected' : ''}>TikTok</option>
-          <option value="Instagram" ${x.platform === 'Instagram' ? 'selected' : ''}>Instagram</option>
-        </select>
-      </div>
-      <div class="form-group"><label>Link Video *</label><input class="form-control" type="url" name="video_url" value="${esc(vidUrl)}" maxlength="400" required placeholder="https://www.youtube.com/watch?v=..."></div>
-      <div class="form-group"><label>Kategori *</label>
-        <input class="form-control" name="category" list="catList" value="${esc(x.category || 'General')}" maxlength="60" required placeholder="Contoh: Setup Server, Plugins">
-        <datalist id="catList">
-          <option value="Setup Server">
-          <option value="Plugins & Konfigurasi">
-          <option value="Gameplay & Sistem">
-          <option value="Resources & Texture">
-          <option value="Web & Tools">
-          <option value="General">
-        </datalist>
-      </div>
+  $('main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+      <h2 class="page-title" style="margin-bottom:0">Kelola Video Tutorial</h2>
+      <button class="btn primary" id="btnAddTut">+ Tambah Tutorial Baru</button>
     </div>
-    <div class="form-group"><label>Deskripsi Pendek</label><textarea class="form-control" name="description" rows="2" maxlength="300" placeholder="Ringkasan singkat isi video tutorial...">${esc(x.description || '')}</textarea></div>
-    <div class="form-group">
-      <label>Thumbnail (PNG/JPG/WEBP, maks 5 MB)</label>
-      <input class="form-control" type="file" id="tutThumbInput" name="thumb" accept="image/png,image/jpeg,image/webp,image/gif" style="padding-top:9px">
-      <div id="thumbPreviewArea" style="margin-top:.6rem;display:flex;align-items:center;gap:12px;${currentThumbUrl ? '' : 'display:none;'}">
-        <img id="thumbPreviewImg" class="thumb" src="${esc(currentThumbUrl)}" alt="Preview" style="width:110px;height:62px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;background:#f1f5f9">
-        ${currentThumbUrl ? `<label style="font-weight:500;font-size:.78rem;cursor:pointer"><input type="checkbox" name="rm_thumb"> Hapus thumbnail saat ini</label>` : ''}
-      </div>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn" data-close>Batal</button><button class="btn primary" type="submit" id="tutSave">Simpan</button></div>
-  </form>`, true);
 
-  const fileInput = m.querySelector('#tutThumbInput');
-  const previewArea = m.querySelector('#thumbPreviewArea');
-  const previewImg = m.querySelector('#thumbPreviewImg');
-  if (fileInput) {
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        previewImg.src = url;
-        previewArea.style.display = 'flex';
+    <div class="table-wrap">
+      ${S.tutorials.length ? `
+        <table class="cards">
+          <thead>
+            <tr>
+              <th>Judul</th>
+              <th>Platform</th>
+              <th>Kategori</th>
+              <th>Tautan Video</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${S.tutorials.map(t => `
+              <tr>
+                <td><b>${esc(t.title)}</b></td>
+                <td><span class="badge" style="background:#fee2e2;color:#dc2626">${esc(t.platform || 'YouTube')}</span></td>
+                <td>${esc(t.category || 'General')}</td>
+                <td><a href="${esc(t.video_url || t.youtube_url)}" target="_blank" style="font-size:0.75rem">${esc(t.video_url || t.youtube_url)}</a></td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn sm" data-edit-tut="${t.id}">Edit</button>
+                    <button class="btn sm danger" data-del-tut="${t.id}">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div style="padding:2rem;text-align:center;color:var(--text-muted)">Belum ada tutorial. Klik "+ Tambah Tutorial Baru" di atas.</div>'}
+    </div>
+  `;
+
+  $('btnAddTut').addEventListener('click', () => openTutorialModal());
+
+  document.querySelectorAll('[data-edit-tut]').forEach(b => {
+    b.addEventListener('click', () => {
+      const tut = S.tutorials.find(x => x.id === b.getAttribute('data-edit-tut'));
+      if (tut) openTutorialModal(tut);
+    });
+  });
+
+  document.querySelectorAll('[data-del-tut]').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!confirm('Hapus tutorial ini?')) return;
+      const id = b.getAttribute('data-del-tut');
+      try {
+        const { error } = await supabase.from('tutorials').delete().eq('id', id);
+        if (error) throw error;
+        toast('Tutorial dihapus');
+        viewTutorials();
+      } catch (e) {
+        toast(`Gagal: ${e.message || 'Gagal menghapus tutorial'}`, true);
       }
     });
-  }
+  });
+}
 
-  m.querySelector('#tutForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target, f = new FormData(form);
-    const thumb = f.get('thumb');
-    const hasThumb = thumb && thumb.size > 0;
-    if (hasThumb) {
-      const bad = validateImage(thumb);
-      if (bad) return toast(bad, true);
+function openTutorialModal(tut = null) {
+  const isEdit = !!tut;
+  const m = openModal(isEdit ? 'Edit Tutorial' : 'Tambah Tutorial Baru');
+
+  m.body.innerHTML = `
+    <form id="fmTut">
+      <div class="form-group">
+        <label>Judul Tutorial *</label>
+        <input type="text" class="form-control" name="title" value="${tut ? esc(tut.title) : ''}" required>
+      </div>
+      <div class="grid2">
+        <div class="form-group">
+          <label>Platform *</label>
+          <select class="form-control" name="platform">
+            <option value="YouTube" ${tut && tut.platform === 'YouTube' ? 'selected' : ''}>YouTube</option>
+            <option value="TikTok" ${tut && tut.platform === 'TikTok' ? 'selected' : ''}>TikTok</option>
+            <option value="Instagram" ${tut && tut.platform === 'Instagram' ? 'selected' : ''}>Instagram</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Kategori</label>
+          <select class="form-control" name="category">
+            <option value="Setup" ${tut && tut.category === 'Setup' ? 'selected' : ''}>Setup</option>
+            <option value="Optimasi" ${tut && tut.category === 'Optimasi' ? 'selected' : ''}>Optimasi</option>
+            <option value="Plugin" ${tut && tut.category === 'Plugin' ? 'selected' : ''}>Plugin</option>
+            <option value="Skript" ${tut && tut.category === 'Skript' ? 'selected' : ''}>Skript</option>
+            <option value="General" ${tut && tut.category === 'General' ? 'selected' : ''}>General</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>URL Video (YouTube / Link Video) *</label>
+        <input type="url" class="form-control" name="video_url" value="${tut ? esc(tut.video_url || tut.youtube_url || '') : ''}" placeholder="https://youtube.com/watch?v=..." required>
+      </div>
+      <div class="form-group">
+        <label>Gambar Thumbnail (Upload atau Masukkan URL)</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input type="file" id="tutThumbUpload" accept="image/*" class="form-control" style="font-size:0.8125rem">
+          <button type="button" class="btn sm" id="btnUploadTutThumb" style="white-space:nowrap">Upload Gambar</button>
+        </div>
+        <input type="url" class="form-control" id="tutThumbUrl" name="thumbnail_url" value="${tut ? esc(tut.thumbnail_url || '') : ''}" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label>Deskripsi Tutorial</label>
+        <textarea class="form-control" name="description" rows="2">${tut ? esc(tut.description || '') : ''}</textarea>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn sm" id="btnCancelTutModal">Batal</button>
+        <button type="submit" class="btn sm primary">Simpan Tutorial</button>
+      </div>
+    </form>
+  `;
+
+  $('btnUploadTutThumb').addEventListener('click', async () => {
+    const file = $('tutThumbUpload').files?.[0];
+    if (!file) { toast('Pilih gambar terlebih dahulu', true); return; }
+    $('btnUploadTutThumb').disabled = true;
+    $('btnUploadTutThumb').textContent = 'Mengupload...';
+    try {
+      const up = await uploadFileToStorage('tutorial-thumbnails', file);
+      $('tutThumbUrl').value = up.publicUrl;
+      toast('Thumbnail berhasil diupload!');
+    } catch (err) {
+      toast(`Gagal upload: ${err.message}`, true);
+    } finally {
+      $('btnUploadTutThumb').disabled = false;
+      $('btnUploadTutThumb').textContent = 'Upload Gambar';
     }
+  });
 
-    const btn = $('tutSave');
-    btn.disabled = true; btn.textContent = 'Menyimpan...';
-    let uploadedBucket = null, uploadedPath = null;
+  $('btnCancelTutModal').addEventListener('click', () => closeModal(m));
+  $('fmTut').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const videoUrl = f.get('video_url');
+    const payload = {
+      title: f.get('title'),
+      platform: f.get('platform'),
+      category: f.get('category'),
+      video_url: videoUrl,
+      youtube_url: videoUrl,
+      thumbnail_url: f.get('thumbnail_url') || null,
+      description: f.get('description'),
+      updated_at: new Date().toISOString()
+    };
 
     try {
-      const title = f.get('title').trim();
-      const video_url = f.get('video_url').trim();
-      const platform = f.get('platform');
-      const category = f.get('category').trim() || 'General';
-      const description = f.get('description').trim() || null;
-
-      const payload = {
-        title,
-        video_url,
-        youtube_url: video_url,
-        platform,
-        category,
-        description
-      };
-
-      const stamp = Date.now();
-      let oldThumb = null;
-
-      if (hasThumb) {
-        const path = `${stamp}_${safeName(thumb.name)}`;
-        let up = await client.storage.from(TUTORIAL_THUMB_BUCKET).upload(path, thumb, { contentType: thumb.type });
-        if (up.error) {
-          // Fallback to THUMB_BUCKET if tutorial-thumbnails has not been created yet
-          up = await client.storage.from(THUMB_BUCKET).upload(path, thumb, { contentType: thumb.type });
-          if (up.error) throw up.error;
-          uploadedBucket = THUMB_BUCKET;
-          payload.thumbnail_url = client.storage.from(THUMB_BUCKET).getPublicUrl(path).data.publicUrl;
-        } else {
-          uploadedBucket = TUTORIAL_THUMB_BUCKET;
-          payload.thumbnail_url = client.storage.from(TUTORIAL_THUMB_BUCKET).getPublicUrl(path).data.publicUrl;
-        }
-        uploadedPath = path;
-        if (t && t.thumbnail_url) oldThumb = t.thumbnail_url;
-      } else if (t && f.get('rm_thumb')) {
-        payload.thumbnail_url = null;
-        oldThumb = t.thumbnail_url;
+      if (isEdit) {
+        const { error } = await supabase.from('tutorials').update(payload).eq('id', tut.id);
+        if (error) throw error;
+        toast('Tutorial diperbarui');
+      } else {
+        const { error } = await supabase.from('tutorials').insert(payload);
+        if (error) throw error;
+        toast('Tutorial baru ditambahkan');
       }
-
-      // Execute insert or update
-      let q = isNew ? client.from(T.tut).insert(payload) : client.from(T.tut).update(payload).eq('id', t.id);
-      let res = await q;
-
-      // Backward-compatibility: if server reports column description/platform/category does not exist yet
-      if (res.error && /column.*does not exist/i.test(res.error.message)) {
-        console.warn('Supabase tutorials table missing newer columns. Falling back to basic schema:', res.error);
-        const fallbackPayload = {
-          title: payload.title,
-          youtube_url: payload.video_url
-        };
-        if (payload.thumbnail_url !== undefined) fallbackPayload.thumbnail_url = payload.thumbnail_url;
-        q = isNew ? client.from(T.tut).insert(fallbackPayload) : client.from(T.tut).update(fallbackPayload).eq('id', t.id);
-        res = await q;
-        if (!res.error) {
-          toast('Disimpan! Catatan: Jalankan supabase_tutorial_migration.sql untuk mengaktifkan kolom kategori & platform.');
-        }
-      }
-
-      if (res.error) throw res.error;
-
-      // Delete old thumbnail if replaced
-      if (oldThumb && !/^https?:/i.test(oldThumb)) {
-        await client.storage.from(TUTORIAL_THUMB_BUCKET).remove([oldThumb]);
-      }
-
-      toast(isNew ? 'Tutorial ditambahkan' : 'Tutorial diperbarui');
       closeModal(m);
       viewTutorials();
     } catch (err) {
-      if (uploadedBucket && uploadedPath) {
-        await client.storage.from(uploadedBucket).remove([uploadedPath]);
-      }
-      toast(errText(err), true);
-      btn.disabled = false; btn.textContent = 'Simpan';
+      toast(`Gagal: ${err.message || 'Gagal menyimpan tutorial'}`, true);
     }
   });
 }
 
+// 6. View Database Status & Setup Guide
+async function viewDatabase() {
+  $('main').innerHTML = '<h2 class="page-title">Status Database Supabase</h2><div>Memeriksa koneksi...</div>';
+
+  let slotOk = false, resOk = false, tutOk = false, bookOk = false;
+
+  try {
+    const { error: e1 } = await supabase.from('endorser_slots').select('id').limit(1);
+    slotOk = !e1;
+  } catch (e) {}
+
+  try {
+    const { error: e2 } = await supabase.from('resources').select('id').limit(1);
+    resOk = !e2;
+  } catch (e) {}
+
+  try {
+    const { error: e3 } = await supabase.from('tutorials').select('id').limit(1);
+    tutOk = !e3;
+  } catch (e) {}
+
+  try {
+    const { error: e4 } = await supabase.from('endorser_bookings').select('id').limit(1);
+    bookOk = !e4;
+  } catch (e) {}
+
+  const allReady = slotOk && resOk && tutOk && bookOk;
+
+  $('main').innerHTML = `
+    <h2 class="page-title">Status Database Supabase</h2>
+    
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1.5rem">
+      <h3 style="font-size:1rem;font-weight:800;margin-bottom:0.75rem">Koneksi Database Aktif</h3>
+      <div style="font-size:0.8125rem;line-height:1.7">
+        <div><b>Project URL:</b> <span class="mono">${SUPABASE_URL}</span></div>
+        <div><b>API Key:</b> <span class="mono">${SUPABASE_ANON_KEY.slice(0, 16)}...</span></div>
+        <div><b>Status Tabel:</b> ${allReady ? '<span class="badge badge-available">Semua Tabel Siap</span>' : '<span class="badge badge-pending">Belum Semua Tabel Dibuat</span>'}</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:1.25rem">
+      <h3 style="font-size:1rem;font-weight:800;margin-bottom:0.5rem">Panduan Setup Database Baru</h3>
+      <p style="font-size:0.8125rem;color:var(--text-muted);line-height:1.6;margin-bottom:1rem">
+        Jika project Supabase ini baru dibuat, Anda hanya perlu membuka <b>Supabase Dashboard &rarr; SQL Editor</b>, lalu jalankan file skrip <b>supabase_schema.sql</b> yang sudah disediakan di root folder proyek ini.
+      </p>
+      
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="https://supabase.com/dashboard/project/shkxmedtmkbmykzogery/sql" target="_blank" rel="noopener noreferrer" class="btn primary sm">
+          Buka Supabase SQL Editor &rarr;
+        </a>
+        <button type="button" class="btn sm" id="btnCopySql">
+          📋 Salin Skrip SQL Schema
+        </button>
+      </div>
+    </div>
+  `;
+
+  $('btnCopySql')?.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/supabase_schema.sql');
+      const text = await res.text();
+      await navigator.clipboard.writeText(text);
+      toast('Skrip SQL berhasil disalin ke clipboard!');
+    } catch (e) {
+      toast('Gagal menyalin SQL. Buka file supabase_schema.sql di project.', true);
+    }
+  });
+}
+
+// Modal helper
+function openModal(title) {
+  const scrim = document.createElement('div');
+  scrim.className = 'modal-scrim';
+  scrim.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>${esc(title)}</h3>
+        <button type="button" class="btn sm" id="_closeModalBtn">&times;</button>
+      </div>
+      <div class="modal-body-content"></div>
+    </div>
+  `;
+  document.body.appendChild(scrim);
+
+  scrim.querySelector('#_closeModalBtn').addEventListener('click', () => closeModal({ scrim }));
+  scrim.addEventListener('click', (e) => {
+    if (e.target === scrim) closeModal({ scrim });
+  });
+
+  return {
+    scrim,
+    body: scrim.querySelector('.modal-body-content')
+  };
+}
+
+function closeModal(m) {
+  if (m && m.scrim) m.scrim.remove();
+}
+
+// Data fetchers
+async function fetchSlots() {
+  try {
+    const { data } = await supabase.from('endorser_slots').select('*').order('scheduled_date', { ascending: true });
+    S.slots = data || [];
+  } catch (e) {
+    S.slots = [];
+  }
+}
+
+async function fetchBookings() {
+  try {
+    const { data } = await supabase.from('endorser_bookings').select('*').order('created_at', { ascending: false });
+    S.bookings = data || [];
+  } catch (e) {
+    S.bookings = [];
+  }
+}
+
+async function fetchResources() {
+  try {
+    const { data } = await supabase.from('resources').select('*').order('created_at', { ascending: false });
+    S.resources = data || [];
+  } catch (e) {
+    S.resources = [];
+  }
+}
+
+async function fetchTutorials() {
+  try {
+    const { data } = await supabase.from('tutorials').select('*').order('created_at', { ascending: false });
+    S.tutorials = data || [];
+  } catch (e) {
+    S.tutorials = [];
+  }
+}
+
+// Authentication & Panel Boot
+async function checkAuthAndBoot() {
+  if (!supabase) {
+    $('gateText').textContent = 'Koneksi database tidak tersedia.';
+    return;
+  }
+
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      $('loginView').hidden = false;
+      document.body.classList.add('ready');
+      setupLoginForm();
+      return;
+    }
+
+    S.user = user;
+    const isAdmin = await isCurrentUserAdmin(user);
+
+    if (!isAdmin) {
+      $('deniedEmail').textContent = user.email || 'Pengguna';
+      $('deniedView').hidden = false;
+      document.body.classList.add('ready');
+      $('btnDeniedLogout').addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        window.location.replace('/login.html');
+      });
+      return;
+    }
+
+    // User is Admin!
+    $('whoName').textContent = user.user_metadata?.full_name || 'Admin rakDEV';
+    $('whoEmail').textContent = user.email || '';
+    $('btnLogout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.replace('/login.html');
+    });
+
+    $('panelView').hidden = false;
+    document.body.classList.add('ready');
+
+    // Pasang Realtime Listener untuk Bookings dan Slots agar admin terupdate otomatis
+    if (supabase) {
+      supabase
+        .channel('admin_realtime_events')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'endorser_bookings' }, () => {
+          if (S.view === 'bookings' || S.view === 'dashboard') {
+            go(S.view);
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'endorser_slots' }, () => {
+          if (S.view === 'endorser' || S.view === 'dashboard') {
+            go(S.view);
+          }
+        })
+        .subscribe();
+    }
+
+    go('dashboard');
+  } catch (err) {
+    $('gateText').textContent = 'Terjadi kesalahan saat memeriksa izin.';
+  }
+}
+
+function setupLoginForm() {
+  $('fmLogin').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = $('inEmail').value.trim();
+    const password = $('inPass').value;
+    const alertBox = $('loginAlert');
+
+    alertBox.hidden = true;
+    $('btnLogin').disabled = true;
+    $('btnLogin').textContent = 'Memverifikasi...';
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      window.location.reload();
+    } catch (err) {
+      alertBox.textContent = err.message || 'Login gagal';
+      alertBox.hidden = false;
+      $('btnLogin').disabled = false;
+      $('btnLogin').textContent = 'Masuk ke Panel';
+    }
+  });
+}
+
+checkAuthAndBoot();
