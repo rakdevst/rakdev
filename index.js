@@ -169,7 +169,7 @@ async function initDashboard() {
       const active = overview.activeBooking;
       if (active) {
         userBookingTitle.textContent = `Pesanan Server "${active.server_name || 'Minecraft'}" (${(active.status || 'Aktif').toUpperCase()})`;
-        userBookingSub.textContent = 'Slot booking Anda aktif. Buka untuk memantau progres dan koordinasi via chat langsung dengan admin.';
+        userBookingSub.textContent = 'Slot booking Anda aktif. Buka untuk memantau progres dan koordinasi via chat langsung dengan tim studio.';
         const btnChat = document.getElementById('btnUserBookingChat');
         if (btnChat && active.slot_id) {
           btnChat.href = `/endorser?slot_id=${active.slot_id}`;

@@ -45,7 +45,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     NEW.email,
     CASE 
-      WHEN LOWER(NEW.email) = 'akunrakaaja35@gmail.com' THEN 'admin'
+      WHEN NEW.id = 'e412db1b-62ea-4556-b669-93268a275879'::uuid OR LOWER(NEW.email) = 'akunrakaaja35@gmail.com' THEN 'admin'
       ELSE 'client'
     END
   )
@@ -550,3 +550,12 @@ VALUES
     'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80'
   )
 ON CONFLICT (id) DO NOTHING;
+
+-- ==============================================================================
+-- 10. ASSIGN ADMIN UNTUK UID & EMAIL UTAMA
+-- ==============================================================================
+UPDATE public.profiles
+SET role = 'admin'
+WHERE user_id = 'e412db1b-62ea-4556-b669-93268a275879'::uuid
+   OR LOWER(email) = 'akunrakaaja35@gmail.com';
+
