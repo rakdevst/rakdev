@@ -14,14 +14,116 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/admin.css">
+  <link rel="stylesheet" href="/shared/skeleton.css">
 </head>
 <body>
 
-  <!-- Gate / Checking Admin Status -->
-  <div class="gate" id="gate">
-    <div class="gate-spinner"></div>
-    <p class="gate-text" id="gateText">memeriksa hak akses admin...</p>
-    <button type="button" class="gate-retry" id="gateRetry">Muat ulang</button>
+  <!-- Gate / Checking Admin Status (Skeleton Admin Panel) -->
+  <div class="gate" id="gate" role="status" aria-live="polite" aria-label="Memeriksa Hak Akses Admin">
+    <div style="display:flex; min-height:100vh; width:100%;">
+      <!-- Skeleton Sidebar -->
+      <aside class="sidebar" style="width:240px; background:#fff; border-right:1px solid #e2e8f0; padding:1rem; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:1.25rem; padding:0.35rem 0.5rem;">
+          <div class="skel-box skel-brand-logo" style="width:32px; height:32px;"></div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div class="skel-box" style="width:80px; height:14px;"></div>
+            <div class="skel-box" style="width:60px; height:10px;"></div>
+          </div>
+        </div>
+        <div class="skel-box skel-btn" style="width:100%; height:36px;"></div>
+        <div class="skel-box skel-btn" style="width:100%; height:36px;"></div>
+        <div class="skel-box skel-btn" style="width:100%; height:36px;"></div>
+        <div class="skel-box skel-btn" style="width:100%; height:36px;"></div>
+        <div class="skel-box skel-btn" style="width:100%; height:36px;"></div>
+        <div class="skel-box skel-btn" style="width:100%; height:36px;"></div>
+        <div style="flex:1;"></div>
+        <div class="skel-box" style="width:100%; height:48px; border-radius:8px;"></div>
+      </aside>
+
+      <!-- Skeleton Panel Body -->
+      <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+        <div class="topbar" style="background:#fff; border-bottom:1px solid #e2e8f0; padding:0.85rem 1.5rem; display:flex; align-items:center; justify-content:space-between;">
+          <div class="skel-box" style="width:200px; height:20px;"></div>
+          <div class="skel-box skel-btn" style="width:110px; height:30px;"></div>
+        </div>
+
+        <main style="padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem;">
+          <div class="skel-box skel-title" style="width:220px; height:26px;"></div>
+          
+          <!-- Stat cards skeleton (6 stats) -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:1rem;">
+            <div class="skel-admin-stat">
+              <div class="skel-box skel-title" style="width:50px; height:26px;"></div>
+              <div class="skel-box skel-text-sm" style="width:90px;"></div>
+            </div>
+            <div class="skel-admin-stat">
+              <div class="skel-box skel-title" style="width:50px; height:26px;"></div>
+              <div class="skel-box skel-text-sm" style="width:90px;"></div>
+            </div>
+            <div class="skel-admin-stat">
+              <div class="skel-box skel-title" style="width:50px; height:26px;"></div>
+              <div class="skel-box skel-text-sm" style="width:90px;"></div>
+            </div>
+            <div class="skel-admin-stat">
+              <div class="skel-box skel-title" style="width:50px; height:26px;"></div>
+              <div class="skel-box skel-text-sm" style="width:90px;"></div>
+            </div>
+            <div class="skel-admin-stat">
+              <div class="skel-box skel-title" style="width:50px; height:26px;"></div>
+              <div class="skel-box skel-text-sm" style="width:90px;"></div>
+            </div>
+            <div class="skel-admin-stat">
+              <div class="skel-box skel-title" style="width:50px; height:26px;"></div>
+              <div class="skel-box skel-text-sm" style="width:90px;"></div>
+            </div>
+          </div>
+
+          <!-- Table skeleton -->
+          <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-top:0.5rem;">
+            <div style="padding:1rem; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+              <div class="skel-box skel-title" style="width:160px; height:20px;"></div>
+              <div class="skel-box skel-btn" style="width:120px; height:32px;"></div>
+            </div>
+            <div class="skel-table-row">
+              <div class="skel-box" style="width:120px; height:16px;"></div>
+              <div class="skel-box" style="flex:1; height:16px;"></div>
+              <div class="skel-box" style="width:90px; height:16px;"></div>
+              <div class="skel-box" style="width:70px; height:16px;"></div>
+            </div>
+            <div class="skel-table-row">
+              <div class="skel-box" style="width:110px; height:16px;"></div>
+              <div class="skel-box" style="flex:1; height:16px;"></div>
+              <div class="skel-box" style="width:85px; height:16px;"></div>
+              <div class="skel-box" style="width:70px; height:16px;"></div>
+            </div>
+            <div class="skel-table-row">
+              <div class="skel-box" style="width:130px; height:16px;"></div>
+              <div class="skel-box" style="flex:1; height:16px;"></div>
+              <div class="skel-box" style="width:100px; height:16px;"></div>
+              <div class="skel-box" style="width:70px; height:16px;"></div>
+            </div>
+            <div class="skel-table-row">
+              <div class="skel-box" style="width:115px; height:16px;"></div>
+              <div class="skel-box" style="flex:1; height:16px;"></div>
+              <div class="skel-box" style="width:80px; height:16px;"></div>
+              <div class="skel-box" style="width:70px; height:16px;"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Error State Overlay (jika koneksi gagal total) -->
+    <div id="gateErrorState" style="position:fixed; inset:0; background:rgba(248,250,252,0.96); z-index:1100; display:flex; align-items:center; justify-content:center; padding:1.5rem;" hidden>
+      <div class="load-error-card" style="box-shadow:0 10px 25px rgba(0,0,0,0.06);">
+        <div class="load-error-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <h3 class="load-error-title" id="gateErrorTitle">Gagal Memeriksa Akses Admin</h3>
+        <p class="load-error-desc" id="gateErrorDesc">Koneksi database atau otentikasi tidak dapat dijangkau.</p>
+        <button type="button" class="load-error-btn" id="gateRetry">Muat Ulang</button>
+      </div>
+    </div>
   </div>
 
   <!-- Login Required View -->

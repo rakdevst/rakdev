@@ -670,3 +670,118 @@ if (typeof document !== 'undefined') {
     document.head.appendChild(s);
   }
 }
+
+/**
+ * Render Skeleton Loading untuk Slot Endorser
+ */
+export function renderSlotSkeletons(container, count = 4) {
+  if (!container) return;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skel-slot-card">
+        <div class="skel-slot-left">
+          <div class="skel-box skel-slot-date"></div>
+          <div class="skel-slot-info">
+            <div class="skel-box skel-title" style="width: ${180 + (i % 3) * 40}px; height: 18px;"></div>
+            <div class="skel-box skel-text" style="width: ${220 + (i % 2) * 50}px;"></div>
+          </div>
+        </div>
+        <div class="skel-slot-right">
+          <div class="skel-box skel-badge" style="width: 80px;"></div>
+          <div class="skel-box skel-btn" style="width: 100px;"></div>
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+/**
+ * Render Skeleton Loading untuk Katalog Resources
+ */
+export function renderResourceSkeletons(container, count = 6) {
+  if (!container) return;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skel-res-card">
+        <div class="skel-box skel-res-thumb"></div>
+        <div class="skel-res-body">
+          <div class="skel-box skel-badge" style="width: 65px; height: 18px;"></div>
+          <div class="skel-box skel-title" style="width: ${75 + (i % 3) * 10}%; height: 20px;"></div>
+          <div class="skel-box skel-text" style="width: 100%;"></div>
+          <div class="skel-box skel-text" style="width: ${70 + (i % 2) * 20}%;"></div>
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <div class="skel-box skel-pill" style="width: 50px; height: 18px;"></div>
+            <div class="skel-box skel-pill" style="width: 60px; height: 18px;"></div>
+          </div>
+        </div>
+        <div class="skel-res-footer">
+          <div class="skel-box skel-text-sm" style="width: 70px;"></div>
+          <div class="skel-box skel-btn" style="width: 80px; height: 30px;"></div>
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+/**
+ * Render Skeleton Loading untuk Katalog Tutorials
+ */
+export function renderTutorialSkeletons(container, count = 6) {
+  if (!container) return;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skel-tut-card">
+        <div class="skel-box skel-tut-thumb">
+          <div class="skel-tut-play-icon"></div>
+        </div>
+        <div class="skel-tut-body">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="skel-box skel-badge" style="width: 65px; height: 18px;"></div>
+            <div class="skel-box skel-badge" style="width: 70px; height: 18px;"></div>
+          </div>
+          <div class="skel-box skel-title" style="width: ${80 + (i % 3) * 8}%; height: 20px;"></div>
+          <div class="skel-box skel-text" style="width: 100%;"></div>
+          <div class="skel-box skel-text" style="width: ${65 + (i % 2) * 25}%;"></div>
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+/**
+ * Render Error Card dengan Tombol Coba Lagi
+ */
+export function renderErrorCard(container, title, message, onRetry = null) {
+  if (!container) return;
+  const retryBtnId = 'retryBtn_' + Math.random().toString(36).substring(2, 9);
+  container.innerHTML = `
+    <div class="load-error-card">
+      <div class="load-error-icon">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h3 class="load-error-title">${title || 'Gagal Memuat Data'}</h3>
+      <p class="load-error-desc">${message || 'Terjadi gangguan jaringan atau koneksi database. Silakan coba lagi.'}</p>
+      ${onRetry ? `<button type="button" class="load-error-btn" id="${retryBtnId}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Coba Lagi
+      </button>` : ''}
+    </div>
+  `;
+  if (onRetry) {
+    const btn = document.getElementById(retryBtnId);
+    if (btn) btn.addEventListener('click', onRetry);
+  }
+}

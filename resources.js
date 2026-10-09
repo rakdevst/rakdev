@@ -4,7 +4,9 @@ import {
   initSmartNavbar, 
   bindLogoutButton, 
   showToast,
-  getRelatedTutorials
+  getRelatedTutorials,
+  renderResourceSkeletons,
+  renderErrorCard
 } from '/shared/supabaseClient.js';
 
 const gate = document.getElementById('gate');
@@ -200,9 +202,14 @@ function escapeHtml(str) {
 }
 
 async function loadResources() {
+  if (allResources.length === 0) {
+    emptyState.hidden = true;
+    renderResourceSkeletons(resourcesGrid, 6);
+  }
+
   if (!supabase) {
-    emptyStateText.textContent = 'Konfigurasi database belum tersedia.';
-    emptyState.hidden = false;
+    resourcesGrid.innerHTML = '';
+    renderErrorCard(resourcesGrid, 'Koneksi Belum Siap', 'Konfigurasi database belum tersedia.');
     return;
   }
 
@@ -221,8 +228,13 @@ async function loadResources() {
 
     renderResources();
   } catch (err) {
-    emptyStateText.textContent = 'Gagal memuat resources. Pastikan tabel telah dibuat di Supabase.';
-    emptyState.hidden = false;
+    resourcesGrid.innerHTML = '';
+    renderErrorCard(
+      resourcesGrid, 
+      'Gagal Memuat Resources', 
+      'Terjadi kendala saat mengambil data resources dari Supabase. Silakan periksa jaringan Anda.',
+      () => loadResources()
+    );
   }
 }
 

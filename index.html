@@ -15,14 +15,95 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/shared/skeleton.css">
 </head>
 <body>
 
-  <!-- Loading Gate -->
-  <div class="gate" id="gate" role="status" aria-live="polite">
-    <div class="gate-spinner"></div>
-    <p class="gate-text" id="gateText">menghubungkan ke studio...</p>
-    <button type="button" class="gate-retry" id="gateRetry">Muat ulang</button>
+  <!-- Loading Gate (Skeleton Dashboard) -->
+  <div class="gate" id="gate" role="status" aria-live="polite" aria-label="Memuat Dashboard Studio">
+    <!-- Skeleton Header -->
+    <div class="skel-header">
+      <div class="skel-header-inner">
+        <div class="skel-brand">
+          <div class="skel-box skel-brand-logo"></div>
+          <div class="skel-box skel-brand-text"></div>
+        </div>
+        <div class="skel-box skel-menu-btn"></div>
+      </div>
+    </div>
+
+    <!-- Skeleton Main Container -->
+    <div class="skel-main">
+      <!-- Hero Skeleton -->
+      <div style="text-align:center; max-width:680px; margin:0 auto 2.5rem; display:flex; flex-direction:column; align-items:center; gap:14px;">
+        <div class="skel-box skel-pill" style="width:230px; height:24px;"></div>
+        <div class="skel-box skel-title-lg" style="width:88%; max-width:540px; height:38px;"></div>
+        <div class="skel-box skel-text" style="width:96%; max-width:580px; height:15px;"></div>
+        <div class="skel-box" style="width:100%; max-width:560px; height:48px; border-radius:10px; margin-top:6px;"></div>
+      </div>
+
+      <!-- Feature Cards Grid Skeleton -->
+      <div class="cards-grid">
+        <!-- 1. Endorser Skeleton -->
+        <div class="skel-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.5rem; display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="skel-box skel-circle" style="width:40px; height:40px;"></div>
+            <div class="skel-box skel-badge" style="width:90px; height:22px;"></div>
+          </div>
+          <div class="skel-box skel-title" style="width:70%; height:22px;"></div>
+          <div class="skel-box skel-text" style="width:100%;"></div>
+          <div class="skel-box skel-text" style="width:85%;"></div>
+          <div class="skel-box skel-text-sm" style="width:55%; margin-top:6px;"></div>
+          <div class="skel-box skel-btn" style="width:100%; height:38px; margin-top:4px;"></div>
+        </div>
+
+        <!-- 2. Resources Skeleton -->
+        <div class="skel-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.5rem; display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="skel-box skel-circle" style="width:40px; height:40px;"></div>
+            <div class="skel-box skel-badge" style="width:85px; height:22px;"></div>
+          </div>
+          <div class="skel-box skel-title" style="width:65%; height:22px;"></div>
+          <div class="skel-box skel-text" style="width:100%;"></div>
+          <div class="skel-box skel-text" style="width:80%;"></div>
+          <div class="skel-box skel-text-sm" style="width:60%; margin-top:6px;"></div>
+          <div class="skel-box skel-btn" style="width:100%; height:38px; margin-top:4px;"></div>
+        </div>
+
+        <!-- 3. Tutorial Skeleton -->
+        <div class="skel-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.5rem; display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="skel-box skel-circle" style="width:40px; height:40px;"></div>
+            <div class="skel-box skel-badge" style="width:85px; height:22px;"></div>
+          </div>
+          <div class="skel-box skel-title" style="width:75%; height:22px;"></div>
+          <div class="skel-box skel-text" style="width:100%;"></div>
+          <div class="skel-box skel-text" style="width:75%;"></div>
+          <div class="skel-box skel-text-sm" style="width:50%; margin-top:6px;"></div>
+          <div class="skel-box skel-btn" style="width:100%; height:38px; margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <!-- Stats Bar Skeleton -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-top:2.5rem;">
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.25rem; display:flex; flex-direction:column; gap:8px;">
+          <div class="skel-box skel-title" style="width:50px; height:24px;"></div>
+          <div class="skel-box skel-text-sm" style="width:110px;"></div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.25rem; display:flex; flex-direction:column; gap:8px;">
+          <div class="skel-box skel-title" style="width:50px; height:24px;"></div>
+          <div class="skel-box skel-text-sm" style="width:110px;"></div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.25rem; display:flex; flex-direction:column; gap:8px;">
+          <div class="skel-box skel-title" style="width:50px; height:24px;"></div>
+          <div class="skel-box skel-text-sm" style="width:110px;"></div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.25rem; display:flex; flex-direction:column; gap:8px;">
+          <div class="skel-box skel-title" style="width:50px; height:24px;"></div>
+          <div class="skel-box skel-text-sm" style="width:110px;"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="app">
@@ -91,7 +172,7 @@
             <div class="card-icon endorser-color">
               <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.8.8 3 2.6 3 5.6"/></svg>
             </div>
-            <span class="card-badge" id="slotBadgeCount">Memuat slot...</span>
+            <span class="card-badge" id="slotBadgeCount">Jadwal Slot</span>
           </div>
           <h2 class="card-title">Slot Upload Endorser</h2>
           <p class="card-desc">Promosikan server Minecraft Anda di TikTok & YouTube rakDEV dengan jadwal transparan dan pantauan produksi realtime.</p>

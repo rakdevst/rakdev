@@ -1,0 +1,415 @@
+/* ==============================================================================
+   rakDEV STUDIO - PROFESSIONAL SKELETON LOADING SYSTEM
+   ============================================================================== */
+
+:root {
+  --skel-base: #e2e8f0;
+  --skel-surface: #ffffff;
+  --skel-border: #e2e8f0;
+  --skel-highlight: #ffffff;
+  --skel-speed: 1.6s;
+}
+
+/* 1. Shimmer Keyframes */
+@keyframes rak-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 2. Core Shimmer Element */
+.skel-box {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--skel-base);
+  background-image: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.85) 0%,
+    rgba(241, 245, 249, 0.95) 35%,
+    rgba(255, 255, 255, 0.98) 50%,
+    rgba(241, 245, 249, 0.95) 65%,
+    rgba(226, 232, 240, 0.85) 100%
+  );
+  background-size: 200% 100%;
+  animation: rak-shimmer var(--skel-speed) ease-in-out infinite;
+  border-radius: var(--r-sm, 6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel-box {
+    animation: none !important;
+    background-image: none !important;
+    background-color: var(--skel-base) !important;
+    opacity: 0.85;
+  }
+}
+
+/* Shape Helpers */
+.skel-title {
+  height: 28px;
+  border-radius: 6px;
+}
+.skel-title-lg {
+  height: 38px;
+  border-radius: 8px;
+}
+.skel-text {
+  height: 14px;
+  border-radius: 4px;
+}
+.skel-text-sm {
+  height: 11px;
+  border-radius: 4px;
+}
+.skel-pill {
+  height: 22px;
+  border-radius: 12px;
+}
+.skel-badge {
+  height: 22px;
+  border-radius: 6px;
+}
+.skel-btn {
+  height: 36px;
+  border-radius: 8px;
+}
+.skel-circle {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 3. Gate Replacement: Full Page Skeleton Container */
+.gate {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg, #f8fafc);
+  background-image: 
+    linear-gradient(to right, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  z-index: 1000;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: block !important; /* No center spinner, realistic layout */
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 1;
+  visibility: visible;
+}
+
+body.ready .gate {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Error fallback inside gate if boot completely fails */
+.gate-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+}
+.gate-error-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 440px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+}
+.gate-error-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+.gate-error-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+.gate-error-text {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+.gate-retry-btn {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.gate-retry-btn:hover {
+  background: #1e293b;
+}
+
+/* 4. Common Skeleton Layout Elements */
+.skel-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.skel-header-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.skel-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.skel-brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+.skel-brand-text {
+  width: 120px;
+  height: 18px;
+}
+.skel-menu-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.skel-main {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 2.25rem 1rem 4rem;
+  width: 100%;
+}
+
+/* 5. In-Container Skeleton Cards */
+
+/* A. Endorser Slot Card Skeleton */
+.skel-slot-card {
+  background: var(--skel-surface, #ffffff);
+  border: 1px solid var(--skel-border, #e2e8f0);
+  border-radius: var(--r-md, 10px);
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+@media (max-width: 768px) {
+  .skel-slot-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.skel-slot-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+.skel-slot-date {
+  width: 60px;
+  height: 54px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.skel-slot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.skel-slot-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .skel-slot-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* B. Resource Card Skeleton */
+.skel-res-card {
+  background: var(--skel-surface, #ffffff);
+  border: 1px solid var(--skel-border, #e2e8f0);
+  border-radius: var(--r-lg, 12px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.skel-res-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+}
+.skel-res-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.skel-res-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--skel-border, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* C. Tutorial Card Skeleton */
+.skel-tut-card {
+  background: var(--skel-surface, #ffffff);
+  border: 1px solid var(--skel-border, #e2e8f0);
+  border-radius: var(--r-lg, 12px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.skel-tut-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  position: relative;
+}
+.skel-tut-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+}
+.skel-tut-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+/* D. Admin Dashboard Skeleton */
+.skel-admin-sidebar {
+  width: 250px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.skel-admin-main {
+  flex: 1;
+  padding: 1.5rem;
+  background: #f8fafc;
+}
+.skel-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.skel-admin-stat {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skel-table-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* 6. Standardized In-Page Error Card with Retry Button */
+.load-error-card {
+  background: #ffffff;
+  border: 1px solid #fee2e2;
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  max-width: 480px;
+  margin: 1.5rem auto;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.05);
+}
+.load-error-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.85rem;
+}
+.load-error-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.4rem;
+}
+.load-error-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+.load-error-btn {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.load-error-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}

@@ -4,7 +4,9 @@ import {
   initSmartNavbar, 
   bindLogoutButton, 
   showToast, 
-  getCurrentUser 
+  getCurrentUser,
+  renderSlotSkeletons,
+  renderErrorCard
 } from '/shared/supabaseClient.js';
 
 // DOM Elements
@@ -438,6 +440,11 @@ chatForm.addEventListener('submit', async (e) => {
 // Load Master Data
 async function loadEndorserData() {
   try {
+    if (allSlots.length === 0) {
+      slotNotice.hidden = true;
+      renderSlotSkeletons(slotListContainer, 4);
+    }
+
     // 1. Ambil slot dari rakDb
     allSlots = await rakDb.getSlots();
 
@@ -487,8 +494,14 @@ async function loadEndorserData() {
     renderSlots();
   } catch (err) {
     console.warn('Error loading endorser data:', err);
-    slotNotice.textContent = 'Gagal memuat jadwal slot. Pastikan database telah siap.';
-    slotNotice.hidden = false;
+    slotNotice.hidden = true;
+    slotListContainer.innerHTML = '';
+    renderErrorCard(
+      slotListContainer,
+      'Gagal Memuat Jadwal Slot',
+      'Terjadi kendala saat mengambil data slot dari database Supabase. Silakan periksa koneksi Anda.',
+      () => loadEndorserData()
+    );
   }
 }
 

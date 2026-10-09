@@ -3,7 +3,9 @@ import {
   initSmartNavbar, 
   bindLogoutButton, 
   showToast,
-  getRelatedResources
+  getRelatedResources,
+  renderTutorialSkeletons,
+  renderErrorCard
 } from '/shared/supabaseClient.js';
 
 const gate = document.getElementById('gate');
@@ -215,9 +217,14 @@ function escapeHtml(str) {
 }
 
 async function loadTutorials() {
+  if (allTutorials.length === 0) {
+    emptyState.hidden = true;
+    renderTutorialSkeletons(tutorialsGrid, 6);
+  }
+
   if (!supabase) {
-    emptyStateText.textContent = 'Konfigurasi database belum tersedia.';
-    emptyState.hidden = false;
+    tutorialsGrid.innerHTML = '';
+    renderErrorCard(tutorialsGrid, 'Koneksi Belum Siap', 'Konfigurasi database belum tersedia.');
     return;
   }
 
@@ -236,8 +243,13 @@ async function loadTutorials() {
 
     renderTutorials();
   } catch (err) {
-    emptyStateText.textContent = 'Gagal memuat tutorial. Pastikan tabel telah dibuat di Supabase.';
-    emptyState.hidden = false;
+    tutorialsGrid.innerHTML = '';
+    renderErrorCard(
+      tutorialsGrid,
+      'Gagal Memuat Video Tutorial',
+      'Terjadi kendala saat mengambil data tutorial dari Supabase. Silakan periksa jaringan Anda.',
+      () => loadTutorials()
+    );
   }
 }
 

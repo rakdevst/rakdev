@@ -44,6 +44,26 @@ function fmtDate(d) {
   }
 }
 
+// Helper Skeleton untuk Admin Table
+function renderAdminTableSkeleton(title, btnText = '', colCount = 6) {
+  $('main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+      <h2 class="page-title" style="margin-bottom:0">${title}</h2>
+      ${btnText ? `<div class="skel-box skel-btn" style="width:150px; height:36px;"></div>` : ''}
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+      <div class="skel-table-row" style="background:#f8fafc;">
+        ${Array.from({ length: colCount }).map(() => `<div class="skel-box" style="flex:1; height:18px;"></div>`).join('')}
+      </div>
+      ${Array.from({ length: 5 }).map(() => `
+        <div class="skel-table-row">
+          ${Array.from({ length: colCount }).map(() => `<div class="skel-box" style="flex:1; height:16px;"></div>`).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 // Sidebar view switcher
 document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -78,7 +98,26 @@ function go(view) {
 
 // 1. View Dashboard
 async function viewDashboard() {
-  $('main').innerHTML = '<h2 class="page-title">Dashboard Studio</h2><div style="color:var(--text-muted)">Memuat data...</div>';
+  $('main').innerHTML = `
+    <h2 class="page-title">Dashboard Studio</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+      <div class="skel-admin-stat"><div class="skel-box skel-title" style="width:45px; height:24px;"></div><div class="skel-box skel-text-sm" style="width:90px;"></div></div>
+      <div class="skel-admin-stat"><div class="skel-box skel-title" style="width:45px; height:24px;"></div><div class="skel-box skel-text-sm" style="width:90px;"></div></div>
+      <div class="skel-admin-stat"><div class="skel-box skel-title" style="width:45px; height:24px;"></div><div class="skel-box skel-text-sm" style="width:90px;"></div></div>
+      <div class="skel-admin-stat"><div class="skel-box skel-title" style="width:45px; height:24px;"></div><div class="skel-box skel-text-sm" style="width:90px;"></div></div>
+      <div class="skel-admin-stat"><div class="skel-box skel-title" style="width:45px; height:24px;"></div><div class="skel-box skel-text-sm" style="width:90px;"></div></div>
+      <div class="skel-admin-stat"><div class="skel-box skel-title" style="width:45px; height:24px;"></div><div class="skel-box skel-text-sm" style="width:90px;"></div></div>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+      <div style="padding:1rem; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <div class="skel-box skel-title" style="width:160px; height:20px;"></div>
+        <div class="skel-box skel-btn" style="width:120px; height:32px;"></div>
+      </div>
+      <div class="skel-table-row"><div class="skel-box" style="flex:1; height:16px;"></div><div class="skel-box" style="flex:1; height:16px;"></div><div class="skel-box" style="flex:1; height:16px;"></div></div>
+      <div class="skel-table-row"><div class="skel-box" style="flex:1; height:16px;"></div><div class="skel-box" style="flex:1; height:16px;"></div><div class="skel-box" style="flex:1; height:16px;"></div></div>
+      <div class="skel-table-row"><div class="skel-box" style="flex:1; height:16px;"></div><div class="skel-box" style="flex:1; height:16px;"></div><div class="skel-box" style="flex:1; height:16px;"></div></div>
+    </div>
+  `;
   await Promise.all([fetchSlots(), fetchBookings(), fetchResources(), fetchTutorials()]);
 
   const totalSlots = S.slots.length;
@@ -139,7 +178,7 @@ async function viewDashboard() {
 
 // 2. View Endorser Slots
 async function viewEndorser() {
-  $('main').innerHTML = '<h2 class="page-title">Kelola Slot Endorser</h2><div>Memuat slot...</div>';
+  renderAdminTableSkeleton('Kelola Slot Endorser', '+ Tambah Slot Baru', 7);
   await fetchSlots();
 
   $('main').innerHTML = `
@@ -298,7 +337,7 @@ function openSlotModal(slot = null) {
 
 // 3. View Bookings & Pesanan
 async function viewBookings() {
-  $('main').innerHTML = '<h2 class="page-title">Booking & Pesanan Masuk</h2><div>Memuat booking...</div>';
+  renderAdminTableSkeleton('Booking & Pesanan Masuk', '', 6);
   await fetchBookings();
 
   $('main').innerHTML = `
@@ -508,7 +547,7 @@ async function openBookingManager(b) {
 
 // 4. View Resources
 async function viewResources() {
-  $('main').innerHTML = '<h2 class="page-title">Kelola Resources</h2><div>Memuat file...</div>';
+  renderAdminTableSkeleton('Kelola Resources', '+ Upload Resource Baru', 6);
   await fetchResources();
 
   $('main').innerHTML = `
@@ -710,7 +749,7 @@ function openResourceModal(res = null) {
 
 // 5. View Tutorials
 async function viewTutorials() {
-  $('main').innerHTML = '<h2 class="page-title">Kelola Video Tutorial</h2><div>Memuat tutorial...</div>';
+  renderAdminTableSkeleton('Kelola Video Tutorial', '+ Tambah Tutorial Baru', 5);
   await fetchTutorials();
 
   $('main').innerHTML = `
@@ -1020,7 +1059,9 @@ async function fetchTutorials() {
 // Authentication & Panel Boot
 async function checkAuthAndBoot() {
   if (!supabase) {
-    $('gateText').textContent = 'Koneksi database tidak tersedia.';
+    if ($('gateErrorDesc')) $('gateErrorDesc').textContent = 'Koneksi database Supabase tidak tersedia.';
+    if ($('gateErrorState')) $('gateErrorState').hidden = false;
+    $('gateRetry')?.addEventListener('click', () => window.location.reload());
     return;
   }
 
@@ -1077,7 +1118,10 @@ async function checkAuthAndBoot() {
 
     go('dashboard');
   } catch (err) {
-    $('gateText').textContent = 'Terjadi kesalahan saat memeriksa izin.';
+    console.warn('Admin boot error:', err);
+    if ($('gateErrorDesc')) $('gateErrorDesc').textContent = err.message || 'Terjadi kesalahan saat memeriksa izin administrator.';
+    if ($('gateErrorState')) $('gateErrorState').hidden = false;
+    $('gateRetry')?.addEventListener('click', () => window.location.reload());
   }
 }
 
