@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <script>
-    (function(){try{var s=sessionStorage.getItem('clean_url');if(s){sessionStorage.removeItem('clean_url');window.history.replaceState(null,'',s);return;}var p=window.location.pathname;if(/endorser/i.test(p)){window.history.replaceState(null,'','/endorser'+window.location.search+window.location.hash);return;}if(/\.(html?|htm)$/i.test(p)||p.endsWith('/')||p===''||p.endsWith('/index')){var c=p.replace(/\.(html?|htm)$/i,'');if(c.endsWith('/index')||c===''||c==='/'){c=c.replace(/\/?index$/,'')+'/dashboard';}else{c=c.toLowerCase();}var f=(c.startsWith('/')?c:'/'+c)+window.location.search+window.location.hash;window.history.replaceState(null,'',f);}}catch(e){}})();
+    (function(){try{var s=sessionStorage.getItem('clean_url');if(s){sessionStorage.removeItem('clean_url');window.history.replaceState(null,'',s);return;}var p=window.location.pathname;if(/(?:endorser|endorse)/i.test(p)){window.history.replaceState(null,'','/endorser'+window.location.search+window.location.hash);return;}if(/\.(html?|htm)$/i.test(p)||p.endsWith('/')||p===''||p.endsWith('/index')){var c=p.replace(/\.(html?|htm)$/i,'');if(c.endsWith('/index')||c===''||c==='/'){c=c.replace(/\/?index$/,'')+'/dashboard';}else{c=c.toLowerCase();}var f=(c.startsWith('/')?c:'/'+c)+window.location.search+window.location.hash;window.history.replaceState(null,'',f);}}catch(e){}})();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="color-scheme" content="light">

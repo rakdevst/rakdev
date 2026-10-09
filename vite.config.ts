@@ -16,20 +16,28 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
           if (req.url) {
-            const [urlPath, query] = req.url.split('?');
+            const [rawPath, query] = req.url.split('?');
             const queryString = query ? `?${query}` : '';
+            const normalized = rawPath.replace(/\/+$/, '').toLowerCase() || '/';
+
             const routes: Record<string, string> = {
               '/': '/index.html',
               '/dashboard': '/index.html',
+              '/dash': '/index.html',
               '/endorser': '/endorser.html',
+              '/endorse': '/endorser.html',
+              '/endorsers': '/endorser.html',
               '/resources': '/resources.html',
+              '/resource': '/resources.html',
               '/tutorial': '/tutorial.html',
+              '/tutorials': '/tutorial.html',
               '/admin': '/admin.html',
               '/login': '/login.html',
               '/register': '/register.html',
             };
-            if (routes[urlPath]) {
-              req.url = routes[urlPath] + queryString;
+
+            if (routes[normalized]) {
+              req.url = routes[normalized] + queryString;
             }
           }
           next();

@@ -2,6 +2,43 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function() {
+      try {
+        var p = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
+        var search = window.location.search || '';
+        var hash = window.location.hash || '';
+        if (p === '/endorse' || p === '/endorser' || p.indexOf('/endorse') === 0) {
+          window.location.replace('/endorser' + search + hash);
+          return;
+        }
+        if (p === '/resource' || p === '/resources' || p.indexOf('/resource') === 0) {
+          window.location.replace('/resources' + search + hash);
+          return;
+        }
+        if (p === '/tutorial' || p === '/tutorials' || p.indexOf('/tutorial') === 0) {
+          window.location.replace('/tutorial' + search + hash);
+          return;
+        }
+        if (p === '/dashboard' || p === '/dash' || p === '') {
+          window.location.replace('/dashboard' + search + hash);
+          return;
+        }
+        if (p === '/login') {
+          window.location.replace('/login' + search + hash);
+          return;
+        }
+        if (p === '/register') {
+          window.location.replace('/register' + search + hash);
+          return;
+        }
+        if (p === '/admin') {
+          window.location.replace('/admin' + search + hash);
+          return;
+        }
+      } catch(e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>404 - Halaman Tidak Ditemukan</title>
   <link rel="icon" href="https://i.ibb.co.com/M5hFGd0t/file-00000000f1fc82308aa606d6a1e12263.png">
